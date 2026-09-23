@@ -126,7 +126,7 @@
                 <div class="mt-2">
                     <h2 id="displayDailyTarget" class="text-2xl font-bold text-slate-900">0 RMB / 일</h2>
                 </div>
-                <p id="displayDailySub" class="text-xs text-slate-400 mt-1">0원 및 미지불일 제외 계산</p>
+                <p id="displayDailySub" class="text-xs text-slate-400 mt-1">0원 및 분식/기타 제외 계산</p>
             </div>
         </div>
 
@@ -1100,14 +1100,14 @@
                 remIconBg.className = "p-2 bg-emerald-50 text-emerald-600 rounded-lg";
             }
 
-            // Daily Average Lunch Cost Calculation (Modified: 식대 0원 및 미지불일 제외)
-            const validTransactions = monthTransactions.filter(t => (parseFloat(t.amount) || 0) > 0);
+            // Daily Average Lunch Cost Calculation (Modified: 식대 0원, 미지불일 및 '분식/기타' 카테고리 제외)
+            const validTransactions = monthTransactions.filter(t => (parseFloat(t.amount) || 0) > 0 && t.category !== '분식/기타');
             const totalValidSpent = validTransactions.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
             const uniqueValidDays = new Set(validTransactions.map(t => t.date)).size;
             const dailyAvgCost = uniqueValidDays > 0 ? Math.round(totalValidSpent / uniqueValidDays) : 0;
             
             document.getElementById('displayDailyTarget').textContent = `${dailyAvgCost.toLocaleString()} RMB / 일`;
-            document.getElementById('displayDailySub').textContent = `유효 지출 일수 (${uniqueValidDays}일, 0원·미지불 제외)`;
+            document.getElementById('displayDailySub').textContent = `유효 지출 일수 (${uniqueValidDays}일, 0원·분식/기타 제외)`;
 
             const filterPayerSelect = document.getElementById('filterPayer');
             const currentPayerVal = filterPayerSelect.value;
@@ -1427,7 +1427,7 @@
                 if (diff > 0) {
                     diffBadge = `<span class="px-2 py-0.5 bg-emerald-50 text-emerald-700 font-extrabold rounded-md border border-emerald-200">+${Math.round(diff).toLocaleString()} RMB (받을 금액)</span>`;
                 } else if (diff < 0) {
-                    diffBadge = `<span class="px-2 py-0.5 bg-rose-50 text-rose-700 font-extrabold rounded-md border border-rose-200">${Math.round(diff).toLocaleString()} RMB (보낼 금액)</span>`;
+                    diffBadge = `<span class="px-2 py-0.5 bg-rose-50 text-rose-700 font-extrabold rounded-md border border-emerald-200">${Math.round(diff).toLocaleString()} RMB (보낼 금액)</span>`;
                 }
 
                 return `

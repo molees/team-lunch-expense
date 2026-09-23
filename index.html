@@ -125,17 +125,20 @@
         <!-- Action Bar & Tabs -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <!-- Tabs -->
-            <div class="flex bg-slate-200/80 p-1 rounded-xl w-full sm:w-auto self-start">
-                <button data-tab="calendar" class="tab-btn flex-1 sm:flex-none px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all text-slate-700 bg-white shadow-sm">
+            <div class="flex flex-wrap bg-slate-200/80 p-1 rounded-xl w-full sm:w-auto self-start gap-1">
+                <button data-tab="calendar" class="tab-btn flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all text-slate-700 bg-white shadow-sm">
                     <i class="fa-regular fa-calendar-days mr-1.5"></i>달력 보기
                 </button>
-                <button data-tab="list" class="tab-btn flex-1 sm:flex-none px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all text-slate-600 hover:text-slate-900">
+                <button data-tab="list" class="tab-btn flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all text-slate-600 hover:text-slate-900">
                     <i class="fa-solid fa-list-check mr-1.5"></i>상세 내역
                 </button>
-                <button data-tab="settlement" class="tab-btn flex-1 sm:flex-none px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all text-slate-600 hover:text-slate-900">
+                <button data-tab="usage" class="tab-btn flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all text-slate-600 hover:text-slate-900">
+                    <i class="fa-solid fa-wallet mr-1.5"></i>팀원별 사용 금액
+                </button>
+                <button data-tab="settlement" class="tab-btn flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all text-slate-600 hover:text-slate-900">
                     <i class="fa-solid fa-users-viewfinder mr-1.5"></i>팀원 정산
                 </button>
-                <button data-tab="analytics" class="tab-btn flex-1 sm:flex-none px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all text-slate-600 hover:text-slate-900">
+                <button data-tab="analytics" class="tab-btn flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all text-slate-600 hover:text-slate-900">
                     <i class="fa-chart-pie fa-solid mr-1.5"></i>통계 분석
                 </button>
             </div>
@@ -214,6 +217,32 @@
                         </thead>
                         <tbody id="transactionTableBody" class="divide-y divide-slate-100 text-xs text-slate-700">
                             <!-- Table rows populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Team Member Usage Summary (New!) -->
+        <div id="tab-usage" class="tab-content hidden">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                <h3 class="text-base font-bold text-slate-900 mb-2 flex items-center">
+                    <i class="fa-solid fa-wallet text-indigo-600 mr-2"></i>
+                    팀원별 월간 식사 사용 금액 (SUM)
+                </h3>
+                <p class="text-xs text-slate-500 mb-4">각 팀원이 한 달 동안 참여한 식사의 지분 총액과 참여 횟수입니다.</p>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                                <th class="p-3">팀원 이름</th>
+                                <th class="p-3 text-center">식사 참여 횟수</th>
+                                <th class="p-3 text-right">한 달 총 사용 밥값 (SUM)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usageTableBody" class="divide-y divide-slate-100">
+                            <!-- Populated dynamically -->
                         </tbody>
                     </table>
                 </div>
@@ -776,9 +805,9 @@
             activeTab = tabName;
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 if (btn.getAttribute('data-tab') === tabName) {
-                    btn.className = "tab-btn flex-1 sm:flex-none px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all text-slate-700 bg-white shadow-sm";
+                    btn.className = "tab-btn flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all text-slate-700 bg-white shadow-sm";
                 } else {
-                    btn.className = "tab-btn flex-1 sm:flex-none px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all text-slate-600 hover:text-slate-900";
+                    btn.className = "tab-btn flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all text-slate-600 hover:text-slate-900";
                 }
             });
 
@@ -920,6 +949,7 @@
             // Render current views
             renderCalendar();
             renderTable();
+            renderUsageSummary();
             renderSettlement();
             if (activeTab === 'analytics') {
                 renderCharts();
@@ -1177,6 +1207,43 @@
                     </td>
                 </tr>
             `).join('');
+        }
+
+        // 팀원별 사용 금액 SUM 렌더링 함수 추가
+        function renderUsageSummary() {
+            const tbody = document.getElementById('usageTableBody');
+            const monthTx = transactions.filter(t => t.date && t.date.startsWith(currentYearMonth));
+
+            const usageStats = {};
+            teamMembers.forEach(m => {
+                usageStats[m] = { count: 0, totalShare: 0 };
+            });
+
+            monthTx.forEach(t => {
+                const amount = parseFloat(t.amount) || 0;
+                const parts = t.participants && t.participants.length > 0 ? t.participants : teamMembers;
+                const perPerson = amount / parts.length;
+
+                parts.forEach(p => {
+                    if (usageStats[p]) {
+                        usageStats[p].count += 1;
+                        usageStats[p].totalShare += perPerson;
+                    }
+                });
+            });
+
+            tbody.innerHTML = teamMembers.map(m => {
+                const count = usageStats[m].count;
+                const totalShare = usageStats[m].totalShare;
+
+                return `
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-3 font-bold text-slate-800">${m}</td>
+                        <td class="p-3 text-center text-slate-600">${count}회</td>
+                        <td class="p-3 text-right font-extrabold text-indigo-600">${Math.round(totalShare).toLocaleString()} RMB</td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         function renderSettlement() {

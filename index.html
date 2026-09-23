@@ -267,7 +267,7 @@
                         </div>
                     </div>
                     <div class="mt-4 pt-4 border-t border-indigo-800 text-center">
-                        <p class="text-xs text-indigo-300">팀원 5인 (박태규, 이수웅, 이인모, 이정규, 이종인)</p>
+                        <p class="text-xs text-indigo-300">팀원 5인 (이인모, 박태규, 이수웅, 이정규, 이종인)</p>
                     </div>
                 </div>
             </div>
@@ -511,8 +511,8 @@
         let currentYearMonth = getFormattedYearMonth(new Date()); // e.g. "2026-09"
         let activeTab = 'calendar';
 
-        // Team members requirement: 박태규, 이수웅, 이인모, 이정규, 이종인
-        const teamMembers = ['박태규', '이수웅', '이인모', '이정규', '이종인'];
+        // Team members requirement: 이인모가 맨 위로 오도록 설정
+        const teamMembers = ['이인모', '박태규', '이수웅', '이정규', '이종인'];
 
         let monthlyBudgets = {}; // { 'YYYY-MM': number } -> Default 0
         let extraIncomes = [];   // Array of { id, date, title, amount }

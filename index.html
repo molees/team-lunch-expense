@@ -795,7 +795,7 @@
             document.getElementById('exportCsvBtn').addEventListener('click', exportToCsv);
         }
 
-        // Excel File Parser Function using SheetJS
+        // Robust Excel File Parser Function using SheetJS
         function handleExcelUpload(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -810,7 +810,6 @@
                     let importedIncomeCount = 0;
 
                     workbook.SheetNames.forEach(sheetName => {
-                        // Match sheet name pattern for months (e.g. "2월", "26년2월")
                         let ym = parseYearMonthFromSheetName(sheetName);
                         if (!ym) return;
 
@@ -823,6 +822,7 @@
                         let headerRowIdx = 1;
                         for (let r = 0; r < Math.min(rows.length, 5); r++) {
                             let row = rows[r];
+                            if (!row) continue;
                             for (let c = 0; c < row.length; c++) {
                                 let val = String(row[c] || '').trim();
                                 if (teamMembers.includes(val)) {
@@ -840,7 +840,6 @@
                             }
                         });
 
-                        // Default member columns if not found in header row (usually col 8 to 13)
                         if (Object.keys(memberColMap).length === 0) {
                             teamMembers.forEach((m, idx) => {
                                 memberColMap[m] = 8 + idx;
@@ -852,7 +851,7 @@
                             let row = rows[r];
                             if (!row || row.length === 0) continue;
 
-                            // 1. Check Income on left side (col 1: name, col 2: amount)
+                            // 1. Income parsing
                             let incName = String(row[1] || '').trim();
                             let incAmount = parseFloat(row[2]);
                             if (incName && !isNaN(incAmount) && incName !== '성명' && incName !== '이월' && incAmount !== 0) {
@@ -864,11 +863,10 @@
                                 else extraIncomes.push(incObj);
                                 importedIncomeCount++;
                             } else if (incName === '이월' && !isNaN(incAmount)) {
-                                // Set initial base budget or income
                                 monthlyBudgets[ym] = Math.max(0, incAmount);
                             }
 
-                            // 2. Check Expense on right side (col 3/4: date, col 5: restaurant, col 6: amount)
+                            // 2. Expense parsing
                             let dateVal = row[3] || row[4];
                             let restaurant = String(row[5] || '').trim();
                             let amount = parseFloat(row[6]);
@@ -877,7 +875,6 @@
                                 let formattedDate = parseExcelDate(dateVal, ym);
                                 if (!formattedDate) continue;
 
-                                // Participants
                                 let participants = [];
                                 teamMembers.forEach(m => {
                                     let colIdx = memberColMap[m];
@@ -890,10 +887,9 @@
                                 });
 
                                 if (participants.length === 0) {
-                                    participants = [...teamMembers]; // Default all if none checked
+                                    participants = [...teamMembers];
                                 }
 
-                                // Category classification
                                 let category = '한식';
                                 if (restaurant.includes('중식') || restaurant.includes('한궈') || restaurant.includes('홍보각')) category = '중식';
                                 else if (restaurant.includes('일식') || restaurant.includes('횟집') || restaurant.includes('만어정')) category = '일식';
@@ -921,46 +917,50 @@
                     });
 
                     saveLocalStorage();
-                    showToast(`엑셀 업로드 완료! 지출 ${importedTxCount}건, 수입 ${importedIncomeCount}건 반영됨`);
+                    showToast(`엑셀 업로드 성공! 지출 ${importedTxCount}건 반영 완료`);
                     renderAll();
                 } catch (err) {
-                    console.error(err);
-                    showToast("엑셀 파일 파싱 중 오류가 발생했습니다.", "error");
+                    console.error("Excel parse error detail:", err);
+                    showToast("엑셀 파일 파싱 중 오류가 발생했습니다. 콘솔을 확인하세요.", "error");
                 }
             };
             reader.readAsArrayBuffer(file);
-            e.target.value = ''; // Reset input
+            e.target.value = '';
         }
 
         function parseYearMonthFromSheetName(sheetName) {
-            sheetName = sheetName.trim();
+            sheetName = String(sheetName || '').trim();
             if (sheetName === 'SUM' || sheetName === '식당표') return null;
-            // e.g. "2월" -> "2025-02" or "2026-02"
+
+            // e.g. "2월" -> "2025-02"
             if (/^\d{1,2}월$/.test(sheetName)) {
                 let m = sheetName.replace('월', '').padStart(2, '0');
                 return `2025-${m}`;
             }
-            // e.g. "26년2월" -> "2026-02"
-            if (/^26년\d{1,2}월$/.test(sheetName)) {
-                let m = sheetName.replace('26년', '').replace('월', '').padStart(2, '0');
+            // e.g. "26년2월" or "2026년2월"
+            let match26 = sheetName.match(/^(?:20)?26년\s*(\d{1,2})월$/);
+            if (match26) {
+                let m = match26[1].padStart(2, '0');
                 return `2026-${m}`;
             }
-            if (/^2026년\d{1,2}월$/.test(sheetName)) {
-                let m = sheetName.replace('2026년', '').replace('월', '').padStart(2, '0');
-                return `2026-${m}`;
+            // general year-month match
+            let matchGen = sheetName.match(/(\d{2,4})년\s*(\d{1,2})월/);
+            if (matchGen) {
+                let y = matchGen[1].length === 2 ? '20' + matchGen[1] : matchGen[1];
+                let m = matchGen[2].padStart(2, '0');
+                return `${y}-${m}`;
             }
             return null;
         }
 
         function parseExcelDate(val, defaultYm) {
-            if (!val) return null;
+            if (!val) return `${defaultYm}-01`;
             if (val instanceof Date) {
                 return val.toISOString().split('T')[0];
             }
             let str = String(val).trim();
             if (str.includes('T')) str = str.split('T')[0];
             if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
-            // If format is like "2-Feb" or day number
             if (/^\d{1,2}$/.test(str)) {
                 return `${defaultYm}-${str.padStart(2, '0')}`;
             }
@@ -1023,11 +1023,9 @@
             const form = document.getElementById('expenseForm');
             form.reset();
 
-            // Populate Payer options
             const payerSelect = document.getElementById('expPayer');
             payerSelect.innerHTML = teamMembers.map(m => `<option value="${m}">${m}</option>`).join('');
 
-            // Populate Participant Checkboxes
             const cbContainer = document.getElementById('participantCheckboxes');
             cbContainer.innerHTML = teamMembers.map(m => `
                 <label class="flex items-center space-x-2 text-xs text-slate-700 cursor-pointer">
@@ -1046,7 +1044,6 @@
                 document.getElementById('expPayer').value = editItem.payer;
                 document.getElementById('expMemo').value = editItem.memo || '';
 
-                // Check saved participants
                 document.querySelectorAll('.participant-cb').forEach(cb => {
                     cb.checked = editItem.participants ? editItem.participants.includes(cb.value) : true;
                 });
@@ -1087,9 +1084,7 @@
         function renderAll() {
             document.getElementById('currentMonthLabel').textContent = currentYearMonth;
 
-            // Compute statistics
             const baseBudget = monthlyBudgets[currentYearMonth] || 0;
-
             const monthIncomes = extraIncomes.filter(i => i.date && i.date.startsWith(currentYearMonth));
             const extraIncomeTotal = monthIncomes.reduce((sum, i) => sum + (parseFloat(i.amount) || 0), 0);
             const totalBudget = baseBudget + extraIncomeTotal;
@@ -1099,7 +1094,6 @@
 
             const remaining = totalBudget - totalSpent;
 
-            // Render Summary Cards
             document.getElementById('displayTotalBudget').textContent = `${totalBudget.toLocaleString()} RMB`;
             document.getElementById('displayBudgetSub').textContent = `기본 ${baseBudget.toLocaleString()} RMB + 추가 ${extraIncomeTotal.toLocaleString()} RMB`;
 
@@ -1121,19 +1115,16 @@
                 remIconBg.className = "p-2 bg-emerald-50 text-emerald-600 rounded-lg";
             }
 
-            // Calculate daily target (remaining weekdays in month)
             const remainingWeekdays = getRemainingWeekdays(currentYearMonth);
             const dailyTarget = remainingWeekdays > 0 ? Math.max(0, Math.round(remaining / remainingWeekdays)) : 0;
             document.getElementById('displayDailyTarget').textContent = `${dailyTarget.toLocaleString()} RMB / 일`;
             document.getElementById('displayDailySub').textContent = `남은 평일 ${remainingWeekdays}일 기준`;
 
-            // Populate Payer filter
             const filterPayerSelect = document.getElementById('filterPayer');
             const currentPayerVal = filterPayerSelect.value;
             filterPayerSelect.innerHTML = `<option value="ALL">전체 결제자</option>` + teamMembers.map(m => `<option value="${m}">${m}</option>`).join('');
             filterPayerSelect.value = currentPayerVal;
 
-            // Render current views
             renderCalendar();
             renderTable();
             renderUsageSummary();
@@ -1152,7 +1143,7 @@
             let count = 0;
             for (let day = startDay; day <= daysInMonth; day++) {
                 const dayOfWeek = new Date(y, m - 1, day).getDay();
-                if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Exclude Sunday(0) and Saturday(6)
+                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
                     count++;
                 }
             }
@@ -1223,7 +1214,6 @@
             const firstDayIndex = new Date(y, m - 1, 1).getDay();
             const totalDays = new Date(y, m, 0).getDate();
 
-            // Month transactions map { dayNum: totalAmount }
             const monthTx = transactions.filter(t => t.date && t.date.startsWith(currentYearMonth));
             const dayTotals = {};
             monthTx.forEach(t => {
@@ -1231,12 +1221,10 @@
                 dayTotals[day] = (dayTotals[day] || 0) + (parseFloat(t.amount) || 0);
             });
 
-            // Blank cells for alignment
             for (let i = 0; i < firstDayIndex; i++) {
                 grid.innerHTML += `<div class="bg-slate-50/50 min-h-[90px] border-b border-r border-slate-100"></div>`;
             }
 
-            // Days cells
             const todayStr = new Date().toISOString().split('T')[0];
 
             for (let day = 1; day <= totalDays; day++) {
@@ -1436,7 +1424,6 @@
             const tbody = document.getElementById('settlementTableBody');
             const monthTx = transactions.filter(t => t.date && t.date.startsWith(currentYearMonth));
 
-            // Initialize member metrics
             const stats = {};
             teamMembers.forEach(m => {
                 stats[m] = { paid: 0, share: 0 };
@@ -1444,12 +1431,10 @@
 
             monthTx.forEach(t => {
                 const amount = parseFloat(t.amount) || 0;
-                // Add paid amount
                 if (stats[t.payer]) {
                     stats[t.payer].paid += amount;
                 }
 
-                // Add share
                 const parts = t.participants && t.participants.length > 0 ? t.participants : teamMembers;
                 const perPerson = amount / parts.length;
                 parts.forEach(p => {
@@ -1462,7 +1447,7 @@
             tbody.innerHTML = teamMembers.map(m => {
                 const paid = stats[m].paid;
                 const share = stats[m].share;
-                const diff = paid - share; // Positive = should receive money, Negative = owes money
+                const diff = paid - share;
 
                 let diffBadge = `<span class="font-bold text-slate-600">0 RMB</span>`;
                 if (diff > 0) {
@@ -1485,7 +1470,6 @@
         function renderCharts() {
             const monthTx = transactions.filter(t => t.date && t.date.startsWith(currentYearMonth));
 
-            // Category Pie Chart
             const categoryTotals = {};
             monthTx.forEach(t => {
                 categoryTotals[t.category] = (categoryTotals[t.category] || 0) + (parseFloat(t.amount) || 0);
@@ -1515,7 +1499,6 @@
                 }
             });
 
-            // Daily Bar Chart
             const [y, m] = currentYearMonth.split('-').map(Number);
             const totalDays = new Date(y, m, 0).getDate();
             const dailyData = new Array(totalDays).fill(0);

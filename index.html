@@ -199,7 +199,6 @@
                         </select>
                         <select id="filterPayer" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700">
                             <option value="ALL">전체 결제자</option>
-                            <!-- Payer options dynamically generated -->
                         </select>
                     </div>
 
@@ -646,11 +645,9 @@
         }
 
         function setupEventListeners() {
-            // Month navigation
             document.getElementById('prevMonthBtn').addEventListener('click', () => changeMonth(-1));
             document.getElementById('nextMonthBtn').addEventListener('click', () => changeMonth(1));
 
-            // Tabs
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const targetTab = e.currentTarget.getAttribute('data-tab');
@@ -658,7 +655,6 @@
                 });
             });
 
-            // Modals toggle
             document.getElementById('openBudgetModalBtn').addEventListener('click', openBudgetModal);
             document.getElementById('cardTotalBudget').addEventListener('click', openBudgetModal);
             document.getElementById('openExpenseModalBtn').addEventListener('click', () => openExpenseModal());
@@ -667,14 +663,12 @@
                 btn.addEventListener('click', closeAllModals);
             });
 
-            // Excel Upload Handler
             document.getElementById('uploadExcelBtn').addEventListener('click', () => {
                 document.getElementById('excelFileInput').click();
             });
 
             document.getElementById('excelFileInput').addEventListener('change', handleExcelUpload);
 
-            // Share button
             document.getElementById('shareAppBtn').addEventListener('click', () => {
                 const dummyUrl = window.location.href;
                 if (navigator.clipboard) {
@@ -685,7 +679,6 @@
                 showToast("링크가 복사되었습니다. 팀원들에게 공유하세요!");
             });
 
-            // Save Base Budget
             document.getElementById('saveBaseBudgetBtn').addEventListener('click', async () => {
                 const newAmount = Number(document.getElementById('baseBudgetInput').value) || 0;
                 monthlyBudgets[currentYearMonth] = newAmount;
@@ -703,7 +696,6 @@
                 renderAll();
             });
 
-            // Income form toggle & submit
             document.getElementById('toggleAddIncomeFormBtn').addEventListener('click', () => {
                 const form = document.getElementById('addIncomeForm');
                 form.classList.toggle('hidden');
@@ -740,7 +732,6 @@
                 renderAll();
             });
 
-            // Expense form submission
             document.getElementById('expenseForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const id = document.getElementById('expenseEditId').value || 'exp_' + Date.now();
@@ -754,7 +745,6 @@
                 const payer = document.getElementById('expPayer').value;
                 const memo = document.getElementById('expMemo').value;
 
-                // Checked participants
                 const checkedBoxes = document.querySelectorAll('.participant-cb:checked');
                 const participants = Array.from(checkedBoxes).map(cb => cb.value);
 
@@ -779,23 +769,20 @@
                 renderAll();
             });
 
-            // Select all participants button
             document.getElementById('selectAllMembersBtn').addEventListener('click', () => {
                 const checkboxes = document.querySelectorAll('.participant-cb');
                 const allChecked = Array.from(checkboxes).every(cb => cb.checked);
                 checkboxes.forEach(cb => cb.checked = !allChecked);
             });
 
-            // Filters
             document.getElementById('searchInput').addEventListener('input', renderTable);
             document.getElementById('filterCategory').addEventListener('change', renderTable);
             document.getElementById('filterPayer').addEventListener('change', renderTable);
 
-            // Export CSV
             document.getElementById('exportCsvBtn').addEventListener('click', exportToCsv);
         }
 
-        // Robust Excel File Parser Function using SheetJS
+        // Robust Excel File Parser Function for Sheet-by-Sheet Monthly Data
         function handleExcelUpload(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -811,14 +798,14 @@
 
                     workbook.SheetNames.forEach(sheetName => {
                         let ym = parseYearMonthFromSheetName(sheetName);
-                        if (!ym) return;
+                        if (!ym) return; // Skip SUM or 식당표 or unrecognized sheets
 
                         const worksheet = workbook.Sheets[sheetName];
                         const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null });
                         if (rows.length < 3) return;
 
-                        // Find header row for participants
-                        let memberColMap = {}; // memberName -> colIndex
+                        // Find header row containing team members
+                        let memberColMap = {}; 
                         let headerRowIdx = 1;
                         for (let r = 0; r < Math.min(rows.length, 5); r++) {
                             let row = rows[r];
@@ -851,12 +838,12 @@
                             let row = rows[r];
                             if (!row || row.length === 0) continue;
 
-                            // 1. Income parsing
+                            // 1. Income parsing (col 1: name, col 2: amount)
                             let incName = String(row[1] || '').trim();
                             let incAmount = parseFloat(row[2]);
                             if (incName && !isNaN(incAmount) && incName !== '성명' && incName !== '이월' && incAmount !== 0) {
                                 let incDate = `${ym}-01`;
-                                let incId = `inc_ex_${ym}_${r}`;
+                                let incId = `inc_${ym}_${r}`;
                                 let incObj = { id: incId, date: incDate, title: incName + ' 지원금', amount: incAmount };
                                 const existingIdx = extraIncomes.findIndex(i => i.id === incId);
                                 if (existingIdx >= 0) extraIncomes[existingIdx] = incObj;
@@ -866,8 +853,8 @@
                                 monthlyBudgets[ym] = Math.max(0, incAmount);
                             }
 
-                            // 2. Expense parsing
-                            let dateVal = row[3] || row[4];
+                            // 2. Expense parsing (col 3/4: date, col 5: restaurant, col 6: amount)
+                            let dateVal = row[3] !== null && row[3] !== undefined ? row[3] : row[4];
                             let restaurant = String(row[5] || '').trim();
                             let amount = parseFloat(row[6]);
 
@@ -896,7 +883,7 @@
                                 else if (restaurant.includes('카페') || restaurant.includes('커피')) category = '카페/디저트';
                                 else if (restaurant.includes('분식') || restaurant.includes('김밥')) category = '분식/기타';
 
-                                let txId = `tx_ex_${formattedDate}_${r}`;
+                                let txId = `tx_${ym}_${r}_${Math.random().toString(36).substring(2, 6)}`;
                                 let txObj = {
                                     id: txId,
                                     date: formattedDate,
@@ -905,34 +892,33 @@
                                     amount: amount,
                                     payer: '이인모',
                                     participants: participants,
-                                    memo: String(row[14] || row[15] || '').trim()
+                                    memo: String(row[14] || row[15] || row[16] || '').trim()
                                 };
 
-                                const existingTxIdx = transactions.findIndex(t => t.id === txId);
-                                if (existingTxIdx >= 0) transactions[existingTxIdx] = txObj;
-                                else transactions.push(txObj);
+                                transactions.push(txObj);
                                 importedTxCount++;
                             }
                         }
                     });
 
                     saveLocalStorage();
-                    showToast(`엑셀 업로드 성공! 지출 ${importedTxCount}건 반영 완료`);
+                    showToast(`엑셀 업로드 성공! 지출 ${importedTxCount}건, 수입 ${importedIncomeCount}건 반영됨`);
                     renderAll();
                 } catch (err) {
-                    console.error("Excel parse error detail:", err);
-                    showToast("엑셀 파일 파싱 중 오류가 발생했습니다. 콘솔을 확인하세요.", "error");
+                    console.error("Excel parse error:", err);
+                    showToast("엑셀 파일 파싱 중 오류가 발생했습니다.", "error");
                 }
             };
             reader.readAsArrayBuffer(file);
             e.target.value = '';
         }
 
+        // Accurate Sheet Name to YYYY-MM Parser
         function parseYearMonthFromSheetName(sheetName) {
             sheetName = String(sheetName || '').trim();
             if (sheetName === 'SUM' || sheetName === '식당표') return null;
 
-            // e.g. "2월" -> "2025-02"
+            // e.g. "2월", "3월" ... (2025년 sheets in this file)
             if (/^\d{1,2}월$/.test(sheetName)) {
                 let m = sheetName.replace('월', '').padStart(2, '0');
                 return `2025-${m}`;
@@ -943,7 +929,6 @@
                 let m = match26[1].padStart(2, '0');
                 return `2026-${m}`;
             }
-            // general year-month match
             let matchGen = sheetName.match(/(\d{2,4})년\s*(\d{1,2})월/);
             if (matchGen) {
                 let y = matchGen[1].length === 2 ? '20' + matchGen[1] : matchGen[1];
@@ -955,7 +940,7 @@
 
         function parseExcelDate(val, defaultYm) {
             if (!val) return `${defaultYm}-01`;
-            if (val instanceof Date) {
+            if (val instanceof Date && !isNaN(val)) {
                 return val.toISOString().split('T')[0];
             }
             let str = String(val).trim();
@@ -963,6 +948,14 @@
             if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
             if (/^\d{1,2}$/.test(str)) {
                 return `${defaultYm}-${str.padStart(2, '0')}`;
+            }
+            // If it's Excel serial date number
+            if (!isNaN(Number(str)) && Number(str) > 30000) {
+                const excelEpoch = new Date(1899, 11, 30);
+                const jsDate = new Date(excelEpoch.getTime() + Number(str) * 86400000);
+                if (!isNaN(jsDate)) {
+                    return jsDate.toISOString().split('T')[0];
+                }
             }
             return `${defaultYm}-01`;
         }

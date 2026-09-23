@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>팀 점심 식대 관리 시스템</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Font (Inter) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
+
+    <!-- Navigation / Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="bg-indigo-600 text-white p-2.5 rounded-xl shadow-md flex items-center justify-center">
+                    <i class="fa-solid fa-utensils text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900 leading-tight">팀 점심 식대 관리 시스템</h1>
+                    <p class="text-xs text-slate-500 font-medium">실시간 월/일별 예산 수입 및 식대 지출 정산</p>
+                </div>
+            </div>
+
+            <!-- Month Navigator & Quick Actions -->
+            <div class="flex items-center space-x-2 sm:space-x-3 w-full sm:w-auto justify-between sm:justify-end">
+                <div class="flex items-center bg-slate-100 rounded-lg p-1 border border-slate-200">
+                    <button id="prevMonthBtn" class="p-1.5 hover:bg-white rounded-md text-slate-600 hover:text-slate-900 transition-colors">
+                        <i class="fa-solid fa-chevron-left text-sm"></i>
+                    </button>
+                    <span id="currentMonthLabel" class="px-3 text-sm font-bold text-slate-800 tracking-wide min-w-[90px] text-center">2026-09</span>
+                    <button id="nextMonthBtn" class="p-1.5 hover:bg-white rounded-md text-slate-600 hover:text-slate-900 transition-colors">
+                        <i class="fa-solid fa-chevron-right text-sm"></i>
+                    </button>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                    <button id="openBudgetModalBtn" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-semibold rounded-lg transition-colors flex items-center space-x-1.5 border border-slate-200">
+                        <i class="fa-solid fa-wallet text-indigo-600"></i>
+                        <span>월 예산 설정</span>
+                    </button>
+                    <button id="shareAppBtn" class="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs sm:text-sm font-semibold rounded-lg transition-colors flex items-center space-x-1.5 border border-indigo-200">
+                        <i class="fa-solid fa-share-nodes"></i>
+                        <span class="hidden sm:inline">팀과 공유</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow w-full">
+
+        <!-- Summary Dashboard Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <!-- Card 1: Total Budget (Income) -->
+            <div id="cardTotalBudget" class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm hover:border-indigo-300 transition-all cursor-pointer group">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">이번 달 총 예산 (수입)</span>
+                    <span class="p-2 bg-indigo-50 text-indigo-600 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                        <i class="fa-solid fa-coins text-sm"></i>
+                    </span>
+                </div>
+                <div class="mt-2 flex items-baseline justify-between">
+                    <h2 id="displayTotalBudget" class="text-2xl font-bold text-slate-900">0 RMB</h2>
+                    <span class="text-xs text-indigo-600 font-medium group-hover:underline">수정 / 내역 &rarr;</span>
+                </div>
+                <p id="displayBudgetSub" class="text-xs text-slate-400 mt-1">기본 예산 0 RMB + 추가 수입 0 RMB</p>
+            </div>
+
+            <!-- Card 2: Total Spent -->
+            <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">이번 달 총 지출</span>
+                    <span class="p-2 bg-rose-50 text-rose-600 rounded-lg">
+                        <i class="fa-solid fa-receipt text-sm"></i>
+                    </span>
+                </div>
+                <div class="mt-2">
+                    <h2 id="displayTotalSpent" class="text-2xl font-bold text-slate-900">0 RMB</h2>
+                </div>
+                <p id="displaySpentSub" class="text-xs text-slate-400 mt-1">총 0 건의 지출 기록</p>
+            </div>
+
+            <!-- Card 3: Remaining RMB -->
+            <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">남은 잔액</span>
+                    <span id="remainingIconBg" class="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                        <i id="remainingIcon" class="fa-solid fa-piggy-bank text-sm"></i>
+                    </span>
+                </div>
+                <div class="mt-2">
+                    <h2 id="displayRemaining" class="text-2xl font-bold text-emerald-600">0 RMB</h2>
+                </div>
+                <p id="displayRemainingSub" class="text-xs text-slate-400 mt-1">예산 대비 0% 소진</p>
+            </div>
+
+            <!-- Card 4: Daily Average / Remaining Weekday Target -->
+            <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">일일 권장 지출 가능액</span>
+                    <span class="p-2 bg-sky-50 text-sky-600 rounded-lg">
+                        <i class="fa-solid fa-calculator text-sm"></i>
+                    </span>
+                </div>
+                <div class="mt-2">
+                    <h2 id="displayDailyTarget" class="text-2xl font-bold text-slate-900">0 RMB / 일</h2>
+                </div>
+                <p id="displayDailySub" class="text-xs text-slate-400 mt-1">남은 평일 기준 계산</p>
+            </div>
+        </div>
+
+        <!-- Action Bar & Tabs -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <!-- Tabs -->
+            <div class="flex bg-slate-200/80 p-1 rounded-xl w-full sm:w-auto self-start">
+                <button data-tab="calendar" class="tab-btn flex-1 sm:flex-none px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all text-slate-700 bg-white shadow-sm">
+                    <i class="fa-regular fa-calendar-days mr-1.5"></i>달력 보기
+                </button>
+                <button data-tab="list" class="tab-btn flex-1 sm:flex-none px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all text-slate-600 hover:text-slate-900">
+                    <i class="fa-solid fa-list-check mr-1.5"></i>상세 내역
+                </button>
+                <button data-tab="settlement" class="tab-btn flex-1 sm:flex-none px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all text-slate-600 hover:text-slate-900">
+                    <i class="fa-solid fa-users-viewfinder mr-1.5"></i>팀원 정산
+                </button>
+                <button data-tab="analytics" class="tab-btn flex-1 sm:flex-none px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all text-slate-600 hover:text-slate-900">
+                    <i class="fa-chart-pie fa-solid mr-1.5"></i>통계 분석
+                </button>
+            </div>
+
+            <!-- Add Expense Button -->
+            <button id="openExpenseModalBtn" class="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-md transition-all flex items-center justify-center space-x-2">
+                <i class="fa-solid fa-plus text-sm"></i>
+                <span>식사 지출 등록</span>
+            </button>
+        </div>
+
+        <!-- Tab 1: Calendar View -->
+        <div id="tab-calendar" class="tab-content block">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <!-- Days of week header -->
+                <div class="grid grid-cols-7 border-b border-slate-200 bg-slate-50/80 text-center py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    <div class="text-rose-500">일</div>
+                    <div>월</div>
+                    <div>화</div>
+                    <div>수</div>
+                    <div>목</div>
+                    <div>금</div>
+                    <div class="text-sky-500">토</div>
+                </div>
+                <!-- Calendar Grid -->
+                <div id="calendarGrid" class="grid grid-cols-7 divide-x divide-y divide-slate-100 bg-slate-100/30">
+                    <!-- Calendar cells populated dynamically -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 2: Detailed List View -->
+        <div id="tab-list" class="tab-content hidden">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <!-- Filters & Search -->
+                <div class="p-4 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                        <div class="relative min-w-[180px]">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                            <input type="text" id="searchInput" placeholder="식당명 또는 메모 검색" class="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <select id="filterCategory" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700">
+                            <option value="ALL">전체 카테고리</option>
+                            <option value="한식">한식</option>
+                            <option value="중식">중식</option>
+                            <option value="일식">일식</option>
+                            <option value="양식">양식</option>
+                            <option value="카페/디저트">카페/디저트</option>
+                            <option value="분식/기타">분식/기타</option>
+                        </select>
+                        <select id="filterPayer" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700">
+                            <option value="ALL">전체 결제자</option>
+                            <!-- Payer options dynamically generated -->
+                        </select>
+                    </div>
+
+                    <button id="exportCsvBtn" class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold text-xs rounded-lg transition-colors border border-emerald-200 flex items-center space-x-1.5 ml-auto">
+                        <i class="fa-solid fa-file-csv"></i>
+                        <span>엑셀(CSV) 내보내기</span>
+                    </button>
+                </div>
+
+                <!-- Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100/70 text-slate-600 text-xs uppercase font-bold border-b border-slate-200">
+                                <th class="p-3.5">날짜</th>
+                                <th class="p-3.5">식당 / 내역</th>
+                                <th class="p-3.5">카테고리</th>
+                                <th class="p-3.5 text-right">금액 (RMB)</th>
+                                <th class="p-3.5">결제자</th>
+                                <th class="p-3.5">참여자</th>
+                                <th class="p-3.5 text-center">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactionTableBody" class="divide-y divide-slate-100 text-xs text-slate-700">
+                            <!-- Table rows populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 3: Team Settlement Matrix -->
+        <div id="tab-settlement" class="tab-content hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Settlement Overview Table -->
+                <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                    <h3 class="text-base font-bold text-slate-900 mb-2 flex items-center">
+                        <i class="fa-solid fa-calculator text-indigo-600 mr-2"></i>
+                        팀원별 개인 정산 현황
+                    </h3>
+                    <p class="text-xs text-slate-500 mb-4">각 팀원이 선결제한 금액과 식사 참여 지분(1/N)을 계산한 현황입니다.</p>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                                    <th class="p-3">팀원 이름</th>
+                                    <th class="p-3 text-right">총 선결제 금액</th>
+                                    <th class="p-3 text-right">개인 지분 금액</th>
+                                    <th class="p-3 text-right">정산 결과</th>
+                                </tr>
+                            </thead>
+                            <tbody id="settlementTableBody" class="divide-y divide-slate-100">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Settlement Guide Card -->
+                <div class="bg-indigo-900 text-white rounded-2xl p-5 shadow-lg flex flex-col justify-between">
+                    <div>
+                        <h4 class="text-base font-bold mb-3 flex items-center">
+                            <i class="fa-solid fa-hand-holding-dollar mr-2 text-indigo-300"></i>
+                            정산 방식 안내
+                        </h4>
+                        <div class="space-y-3 text-xs text-indigo-100 leading-relaxed">
+                            <div class="p-3 bg-white/10 rounded-xl">
+                                <p class="font-bold text-white mb-1">1. 회사 예산 지원 방식</p>
+                                <p>총 지출이 지원 예산 이내일 경우, 별도 개인 송금 없이 회사가 선결제자에게 비용을 보상합니다.</p>
+                            </div>
+                            <div class="p-3 bg-white/10 rounded-xl">
+                                <p class="font-bold text-white mb-1">2. 예산 초과시 개인 정산</p>
+                                <p>예산 초과 시 (-) 정산 대상자가 (+) 정산 대상자에게 차액을 송금하면 완료됩니다.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-indigo-800 text-center">
+                        <p class="text-xs text-indigo-300">팀원 5인 (박태규, 이수웅, 이인모, 이정규, 이종인)</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 4: Analytics View -->
+        <div id="tab-analytics" class="tab-content hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Pie Chart: Category Distribution -->
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                    <h3 class="text-sm font-bold text-slate-800 mb-4 flex items-center">
+                        <i class="fa-solid fa-chart-pie text-indigo-600 mr-2"></i>
+                        카테고리별 지출 비중
+                    </h3>
+                    <div class="h-64 relative flex items-center justify-center">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Bar Chart: Daily Expense Trend -->
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                    <h3 class="text-sm font-bold text-slate-800 mb-4 flex items-center">
+                        <i class="fa-solid fa-chart-column text-indigo-600 mr-2"></i>
+                        일자별 지출 추이 (RMB)
+                    </h3>
+                    <div class="h-64 relative">
+                        <canvas id="dailyChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal 1: Unified Budget & Income Edit Modal -->
+    <div id="budgetModal" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-200">
+                <h3 class="text-lg font-bold text-slate-900 flex items-center">
+                    <i class="fa-solid fa-wallet text-indigo-600 mr-2"></i>
+                    이번 달 예산 및 수입 설정
+                </h3>
+                <button class="close-modal-btn text-slate-400 hover:text-slate-600 text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="py-4 space-y-6 overflow-y-auto flex-grow no-scrollbar">
+                <!-- Base Budget Form Section -->
+                <div class="bg-indigo-50/60 p-4 rounded-xl border border-indigo-100">
+                    <label class="block text-xs font-bold text-indigo-900 uppercase tracking-wider mb-2">
+                        기본 예산 지원금 (RMB)
+                    </label>
+                    <div class="flex items-center space-x-2">
+                        <div class="relative flex-grow">
+                            <input type="number" id="baseBudgetInput" min="0" step="1" value="0" class="w-full px-3 py-2 text-sm bg-white border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-slate-800">
+                            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">RMB</span>
+                        </div>
+                        <button id="saveBaseBudgetBtn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg transition-colors whitespace-nowrap">
+                            기본예산 저장
+                        </button>
+                    </div>
+                    <p class="text-[11px] text-indigo-600/80 mt-1.5">* 기본 매월 지정되는 식대 지원금 금액입니다 (기본값: 0 RMB).</p>
+                </div>
+
+                <!-- Extra Incomes List Section -->
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider">추가 수입 / 지원금 내역</h4>
+                        <button id="toggleAddIncomeFormBtn" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center space-x-1">
+                            <i class="fa-solid fa-plus text-xs"></i>
+                            <span>수입 항목 추가</span>
+                        </button>
+                    </div>
+
+                    <!-- Add Income Inline Form (Hidden by default) -->
+                    <form id="addIncomeForm" class="bg-slate-50 p-3 rounded-xl border border-slate-200 mb-3 space-y-3 hidden">
+                        <input type="hidden" id="incomeEditId" value="">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-500 mb-1">날짜</label>
+                                <input type="date" id="incomeDate" required class="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-md bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-500 mb-1">금액 (RMB)</label>
+                                <input type="number" id="incomeAmount" required min="0" step="1" placeholder="예: 500" class="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-md bg-white">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-500 mb-1">수입 명목 / 메모</label>
+                            <input type="text" id="incomeTitle" placeholder="예: 야간 근무 지원금" required class="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-md bg-white">
+                        </div>
+                        <div class="flex justify-end space-x-2 pt-1">
+                            <button type="button" id="cancelIncomeFormBtn" class="px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs rounded-md">취소</button>
+                            <button type="submit" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-md">저장</button>
+                        </div>
+                    </form>
+
+                    <!-- Income List Table -->
+                    <div class="border border-slate-200 rounded-xl overflow-hidden">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
+                                <tr>
+                                    <th class="p-2.5">날짜</th>
+                                    <th class="p-2.5">명목</th>
+                                    <th class="p-2.5 text-right">금액 (RMB)</th>
+                                    <th class="p-2.5 text-center">관리</th>
+                                </tr>
+                            </thead>
+                            <tbody id="incomeListBody" class="divide-y divide-slate-100 text-slate-700">
+                                <!-- Dynamically populated -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-4 border-t border-slate-200 flex justify-end">
+                <button type="button" class="close-modal-btn px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-lg transition-colors">
+                    닫기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 2: Add / Edit Expense Modal -->
+    <div id="expenseModal" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto no-scrollbar">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-200">
+                <h3 id="expenseModalTitle" class="text-lg font-bold text-slate-900">식사 지출 등록</h3>
+                <button class="close-modal-btn text-slate-400 hover:text-slate-600 text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <form id="expenseForm" class="py-4 space-y-4">
+                <input type="hidden" id="expenseEditId" value="">
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">날짜</label>
+                    <input type="date" id="expDate" required class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">식당명 / 내역</label>
+                    <input type="text" id="expTitle" required placeholder="예: 맛있는 중국집" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">카테고리</label>
+                        <select id="expCategory" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                            <option value="한식">한식</option>
+                            <option value="중식">중식</option>
+                            <option value="일식">일식</option>
+                            <option value="양식">양식</option>
+                            <option value="카페/디저트">카페/디저트</option>
+                            <option value="분식/기타">분식/기타</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">총 결제 금액 (RMB)</label>
+                        <input type="number" id="expAmount" required min="0" step="1" placeholder="예: 0" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 font-bold">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">선결제자 (누가 먼저 계산했나요?)</label>
+                    <select id="expPayer" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        <!-- Populated with team members -->
+                    </select>
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="text-xs font-bold text-slate-700">식사 참여자 (N분의 1 지분)</label>
+                        <button type="button" id="selectAllMembersBtn" class="text-[11px] font-semibold text-indigo-600 hover:underline">전체 선택</button>
+                    </div>
+                    <div id="participantCheckboxes" class="grid grid-cols-2 gap-2 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                        <!-- Checkboxes generated dynamically -->
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">비고 / 메모</label>
+                    <input type="text" id="expMemo" placeholder="특이사항 메모 (선택)" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div class="pt-3 border-t border-slate-200 flex space-x-2 justify-end">
+                    <button type="button" class="close-modal-btn px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-xs rounded-lg transition-colors">취소</button>
+                    <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg transition-colors shadow-md">저장하기</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 3: Day Detail Modal -->
+    <div id="dayDetailModal" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 max-h-[85vh] flex flex-col">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+                <h3 id="dayDetailTitle" class="text-base font-bold text-slate-900">2026-09-22 식대 내역</h3>
+                <button class="close-modal-btn text-slate-400 hover:text-slate-600 text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div id="dayDetailList" class="py-4 divide-y divide-slate-100 flex-grow overflow-y-auto no-scrollbar space-y-2">
+                <!-- Dynamically populated day items -->
+            </div>
+            <div class="pt-3 border-t border-slate-200 flex justify-between items-center">
+                <button id="addExpenseForDayBtn" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-lg transition-colors border border-indigo-200 flex items-center space-x-1">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>이 날짜에 지출 추가</span>
+                </button>
+                <button type="button" class="close-modal-btn px-4 py-1.5 bg-slate-800 text-white text-xs font-bold rounded-lg">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Box -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl text-xs flex items-center space-x-2 transition-all duration-300 opacity-0 pointer-events-none transform translate-y-2">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-sm"></i>
+        <span id="toastMessage">메시지 내용</span>
+    </div>
+
+    <!-- Application Logic Script -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "dummy-key",
+            authDomain: "dummy.firebaseapp.com",
+            projectId: "dummy-project"
+        };
+
+        let db = null;
+        let auth = null;
+        let currentUser = null;
+
+        // Application State
+        let currentYearMonth = getFormattedYearMonth(new Date()); // e.g. "2026-09"
+        let activeTab = 'calendar';
+
+        // Team members requirement: 박태규, 이수웅, 이인모, 이정규, 이종인
+        const teamMembers = ['박태규', '이수웅', '이인모', '이정규', '이종인'];
+
+        let monthlyBudgets = {}; // { 'YYYY-MM': number } -> Default 0
+        let extraIncomes = [];   // Array of { id, date, title, amount }
+        let transactions = [];   // Array of { id, date, title, category, amount, payer, participants, memo }
+
+        // Chart instances
+        let categoryChartInstance = null;
+        let dailyChartInstance = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initFirebase();
+            setupEventListeners();
+            renderAll();
+        });
+
+        function getFormattedYearMonth(dateObj) {
+            const y = dateObj.getFullYear();
+            const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+            return `${y}-${m}`;
+        }
+
+        function initFirebase() {
+            if (!firebaseConfig || firebaseConfig.apiKey === "dummy-key" || firebaseConfig.projectId === "dummy-project") {
+                loadLocalStorage();
+                return;
+            }
+            try {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                signInAnonymously(auth).catch(() => {
+                    loadLocalStorage();
+                });
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        currentUser = user;
+                        listenToFirestore();
+                    } else {
+                        loadLocalStorage();
+                    }
+                });
+            } catch (err) {
+                loadLocalStorage();
+            }
+        }
+
+        function loadLocalStorage() {
+            const savedBudgets = localStorage.getItem('lunch_budgets');
+            if (savedBudgets) monthlyBudgets = JSON.parse(savedBudgets);
+
+            const savedIncomes = localStorage.getItem('lunch_incomes');
+            if (savedIncomes) extraIncomes = JSON.parse(savedIncomes);
+
+            const savedTx = localStorage.getItem('lunch_transactions');
+            if (savedTx) transactions = JSON.parse(savedTx);
+
+            renderAll();
+        }
+
+        function saveLocalStorage() {
+            localStorage.setItem('lunch_budgets', JSON.stringify(monthlyBudgets));
+            localStorage.setItem('lunch_incomes', JSON.stringify(extraIncomes));
+            localStorage.setItem('lunch_transactions', JSON.stringify(transactions));
+        }
+
+        function listenToFirestore() {
+            if (!db) return;
+            
+            onSnapshot(collection(db, "lunch_budgets"), (snapshot) => {
+                monthlyBudgets = {};
+                snapshot.forEach(doc => {
+                    monthlyBudgets[doc.id] = doc.data().amount || 0;
+                });
+                renderAll();
+            }, () => loadLocalStorage());
+
+            onSnapshot(collection(db, "lunch_incomes"), (snapshot) => {
+                extraIncomes = [];
+                snapshot.forEach(doc => {
+                    extraIncomes.push({ id: doc.id, ...doc.data() });
+                });
+                renderAll();
+            }, () => loadLocalStorage());
+
+            onSnapshot(collection(db, "lunch_transactions"), (snapshot) => {
+                transactions = [];
+                snapshot.forEach(doc => {
+                    transactions.push({ id: doc.id, ...doc.data() });
+                });
+                renderAll();
+            }, () => loadLocalStorage());
+        }
+
+        function setupEventListeners() {
+            // Month navigation
+            document.getElementById('prevMonthBtn').addEventListener('click', () => changeMonth(-1));
+            document.getElementById('nextMonthBtn').addEventListener('click', () => changeMonth(1));
+
+            // Tabs
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const targetTab = e.currentTarget.getAttribute('data-tab');
+                    switchTab(targetTab);
+                });
+            });
+
+            // Modals toggle
+            document.getElementById('openBudgetModalBtn').addEventListener('click', openBudgetModal);
+            document.getElementById('cardTotalBudget').addEventListener('click', openBudgetModal);
+            document.getElementById('openExpenseModalBtn').addEventListener('click', () => openExpenseModal());
+
+            document.querySelectorAll('.close-modal-btn').forEach(btn => {
+                btn.addEventListener('click', closeAllModals);
+            });
+
+            // Share button
+            document.getElementById('shareAppBtn').addEventListener('click', () => {
+                const dummyUrl = window.location.href;
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(dummyUrl);
+                } else {
+                    document.execCommand('copy');
+                }
+                showToast("링크가 복사되었습니다. 팀원들에게 공유하세요!");
+            });
+
+            // Save Base Budget
+            document.getElementById('saveBaseBudgetBtn').addEventListener('click', async () => {
+                const newAmount = Number(document.getElementById('baseBudgetInput').value) || 0;
+                monthlyBudgets[currentYearMonth] = newAmount;
+                saveLocalStorage();
+
+                if (db && firebaseConfig.apiKey !== "dummy-key") {
+                    try {
+                        await setDoc(doc(db, "lunch_budgets", currentYearMonth), { amount: newAmount });
+                    } catch (e) {
+                        console.warn(e);
+                    }
+                }
+
+                showToast("기본 예산이 저장되었습니다.");
+                renderAll();
+            });
+
+            // Income form toggle & submit
+            document.getElementById('toggleAddIncomeFormBtn').addEventListener('click', () => {
+                const form = document.getElementById('addIncomeForm');
+                form.classList.toggle('hidden');
+                document.getElementById('incomeEditId').value = '';
+                document.getElementById('incomeDate').value = `${currentYearMonth}-01`;
+                document.getElementById('incomeTitle').value = '';
+                document.getElementById('incomeAmount').value = '';
+            });
+
+            document.getElementById('cancelIncomeFormBtn').addEventListener('click', () => {
+                document.getElementById('addIncomeForm').classList.add('hidden');
+            });
+
+            document.getElementById('addIncomeForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const id = document.getElementById('incomeEditId').value || 'inc_' + Date.now();
+                const date = document.getElementById('incomeDate').value;
+                const title = document.getElementById('incomeTitle').value;
+                const amount = Number(document.getElementById('incomeAmount').value) || 0;
+
+                const incomeData = { id, date, title, amount };
+                updateLocalIncome(incomeData);
+
+                if (db && firebaseConfig.apiKey !== "dummy-key") {
+                    try {
+                        await setDoc(doc(db, "lunch_incomes", id), incomeData);
+                    } catch (e) {
+                        console.warn(e);
+                    }
+                }
+
+                document.getElementById('addIncomeForm').classList.add('hidden');
+                showToast("수입 항목이 저장되었습니다.");
+                renderAll();
+            });
+
+            // Expense form submission
+            document.getElementById('expenseForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const id = document.getElementById('expenseEditId').value || 'exp_' + Date.now();
+                const date = document.getElementById('expDate').value;
+                const title = document.getElementById('expTitle').value;
+                const category = document.getElementById('expCategory').value;
+                
+                const amountVal = document.getElementById('expAmount').value;
+                const amount = amountVal === '' ? 0 : Number(amountVal);
+                
+                const payer = document.getElementById('expPayer').value;
+                const memo = document.getElementById('expMemo').value;
+
+                // Checked participants
+                const checkedBoxes = document.querySelectorAll('.participant-cb:checked');
+                const participants = Array.from(checkedBoxes).map(cb => cb.value);
+
+                if (participants.length === 0) {
+                    showToast("최소 1명의 식사 참여자를 선택해주세요.", "error");
+                    return;
+                }
+
+                const expData = { id, date, title, category, amount, payer, participants, memo };
+                updateLocalTransaction(expData);
+
+                if (db && firebaseConfig.apiKey !== "dummy-key") {
+                    try {
+                        await setDoc(doc(db, "lunch_transactions", id), expData);
+                    } catch (e) {
+                        console.warn(e);
+                    }
+                }
+
+                closeAllModals();
+                showToast("식사 지출 내역이 저장되었습니다.");
+                renderAll();
+            });
+
+            // Select all participants button
+            document.getElementById('selectAllMembersBtn').addEventListener('click', () => {
+                const checkboxes = document.querySelectorAll('.participant-cb');
+                const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+                checkboxes.forEach(cb => cb.checked = !allChecked);
+            });
+
+            // Filters
+            document.getElementById('searchInput').addEventListener('input', renderTable);
+            document.getElementById('filterCategory').addEventListener('change', renderTable);
+            document.getElementById('filterPayer').addEventListener('change', renderTable);
+
+            // Export CSV
+            document.getElementById('exportCsvBtn').addEventListener('click', exportToCsv);
+        }
+
+        function updateLocalIncome(item) {
+            const idx = extraIncomes.findIndex(i => i.id === item.id);
+            if (idx >= 0) extraIncomes[idx] = item;
+            else extraIncomes.push(item);
+            saveLocalStorage();
+        }
+
+        function updateLocalTransaction(item) {
+            const idx = transactions.findIndex(t => t.id === item.id);
+            if (idx >= 0) transactions[idx] = item;
+            else transactions.push(item);
+            saveLocalStorage();
+        }
+
+        function changeMonth(delta) {
+            const [y, m] = currentYearMonth.split('-').map(Number);
+            const date = new Date(y, m - 1 + delta, 1);
+            currentYearMonth = getFormattedYearMonth(date);
+            renderAll();
+        }
+
+        function switchTab(tabName) {
+            activeTab = tabName;
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                if (btn.getAttribute('data-tab') === tabName) {
+                    btn.className = "tab-btn flex-1 sm:flex-none px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all text-slate-700 bg-white shadow-sm";
+                } else {
+                    btn.className = "tab-btn flex-1 sm:flex-none px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all text-slate-600 hover:text-slate-900";
+                }
+            });
+
+            document.querySelectorAll('.tab-content').forEach(content => {
+                if (content.id === `tab-${tabName}`) {
+                    content.classList.remove('hidden');
+                    content.classList.add('block');
+                } else {
+                    content.classList.add('hidden');
+                    content.classList.remove('block');
+                }
+            });
+
+            if (tabName === 'analytics') {
+                renderCharts();
+            }
+        }
+
+        function openBudgetModal() {
+            document.getElementById('baseBudgetInput').value = monthlyBudgets[currentYearMonth] || 0;
+            renderIncomeList();
+            document.getElementById('budgetModal').classList.remove('hidden');
+        }
+
+        function openExpenseModal(editItem = null, defaultDate = null) {
+            const form = document.getElementById('expenseForm');
+            form.reset();
+
+            // Populate Payer options
+            const payerSelect = document.getElementById('expPayer');
+            payerSelect.innerHTML = teamMembers.map(m => `<option value="${m}">${m}</option>`).join('');
+
+            // Populate Participant Checkboxes
+            const cbContainer = document.getElementById('participantCheckboxes');
+            cbContainer.innerHTML = teamMembers.map(m => `
+                <label class="flex items-center space-x-2 text-xs text-slate-700 cursor-pointer">
+                    <input type="checkbox" value="${m}" class="participant-cb rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" checked>
+                    <span>${m}</span>
+                </label>
+            `).join('');
+
+            if (editItem) {
+                document.getElementById('expenseModalTitle').textContent = '식사 지출 수정';
+                document.getElementById('expenseEditId').value = editItem.id;
+                document.getElementById('expDate').value = editItem.date;
+                document.getElementById('expTitle').value = editItem.title;
+                document.getElementById('expCategory').value = editItem.category;
+                document.getElementById('expAmount').value = editItem.amount;
+                document.getElementById('expPayer').value = editItem.payer;
+                document.getElementById('expMemo').value = editItem.memo || '';
+
+                // Check saved participants
+                document.querySelectorAll('.participant-cb').forEach(cb => {
+                    cb.checked = editItem.participants ? editItem.participants.includes(cb.value) : true;
+                });
+            } else {
+                document.getElementById('expenseModalTitle').textContent = '식사 지출 등록';
+                document.getElementById('expenseEditId').value = '';
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById('expDate').value = defaultDate || today;
+            }
+
+            document.getElementById('expenseModal').classList.remove('hidden');
+        }
+
+        function closeAllModals() {
+            document.getElementById('budgetModal').classList.add('hidden');
+            document.getElementById('expenseModal').classList.add('hidden');
+            document.getElementById('dayDetailModal').classList.add('hidden');
+        }
+
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMsg.textContent = msg;
+            if (type === 'error') {
+                toastIcon.className = "fa-solid fa-circle-exclamation text-rose-400 text-sm";
+            } else {
+                toastIcon.className = "fa-solid fa-circle-check text-emerald-400 text-sm";
+            }
+
+            toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-2');
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-2');
+            }, 3000);
+        }
+
+        function renderAll() {
+            document.getElementById('currentMonthLabel').textContent = currentYearMonth;
+
+            // Compute statistics
+            const baseBudget = monthlyBudgets[currentYearMonth] || 0;
+
+            const monthIncomes = extraIncomes.filter(i => i.date && i.date.startsWith(currentYearMonth));
+            const extraIncomeTotal = monthIncomes.reduce((sum, i) => sum + (parseFloat(i.amount) || 0), 0);
+            const totalBudget = baseBudget + extraIncomeTotal;
+
+            const monthTransactions = transactions.filter(t => t.date && t.date.startsWith(currentYearMonth));
+            const totalSpent = monthTransactions.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+
+            const remaining = totalBudget - totalSpent;
+
+            // Render Summary Cards
+            document.getElementById('displayTotalBudget').textContent = `${totalBudget.toLocaleString()} RMB`;
+            document.getElementById('displayBudgetSub').textContent = `기본 ${baseBudget.toLocaleString()} RMB + 추가 ${extraIncomeTotal.toLocaleString()} RMB`;
+
+            document.getElementById('displayTotalSpent').textContent = `${totalSpent.toLocaleString()} RMB`;
+            document.getElementById('displaySpentSub').textContent = `총 ${monthTransactions.length}건의 지출 기록`;
+
+            const remEl = document.getElementById('displayRemaining');
+            const remIconBg = document.getElementById('remainingIconBg');
+            remEl.textContent = `${remaining.toLocaleString()} RMB`;
+
+            const burnRate = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0;
+            document.getElementById('displayRemainingSub').textContent = `예산 대비 ${burnRate}% 소진`;
+
+            if (remaining < 0) {
+                remEl.className = "text-2xl font-bold text-rose-600";
+                remIconBg.className = "p-2 bg-rose-50 text-rose-600 rounded-lg";
+            } else {
+                remEl.className = "text-2xl font-bold text-emerald-600";
+                remIconBg.className = "p-2 bg-emerald-50 text-emerald-600 rounded-lg";
+            }
+
+            // Calculate daily target (remaining weekdays in month)
+            const remainingWeekdays = getRemainingWeekdays(currentYearMonth);
+            const dailyTarget = remainingWeekdays > 0 ? Math.max(0, Math.round(remaining / remainingWeekdays)) : 0;
+            document.getElementById('displayDailyTarget').textContent = `${dailyTarget.toLocaleString()} RMB / 일`;
+            document.getElementById('displayDailySub').textContent = `남은 평일 ${remainingWeekdays}일 기준`;
+
+            // Populate Payer filter
+            const filterPayerSelect = document.getElementById('filterPayer');
+            const currentPayerVal = filterPayerSelect.value;
+            filterPayerSelect.innerHTML = `<option value="ALL">전체 결제자</option>` + teamMembers.map(m => `<option value="${m}">${m}</option>`).join('');
+            filterPayerSelect.value = currentPayerVal;
+
+            // Render current views
+            renderCalendar();
+            renderTable();
+            renderSettlement();
+            if (activeTab === 'analytics') {
+                renderCharts();
+            }
+        }
+
+        function getRemainingWeekdays(yearMonth) {
+            const [y, m] = yearMonth.split('-').map(Number);
+            const now = new Date();
+            const startDay = (now.getFullYear() === y && now.getMonth() + 1 === m) ? now.getDate() : 1;
+            const daysInMonth = new Date(y, m, 0).getDate();
+
+            let count = 0;
+            for (let day = startDay; day <= daysInMonth; day++) {
+                const dayOfWeek = new Date(y, m - 1, day).getDay();
+                if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Exclude Sunday(0) and Saturday(6)
+                    count++;
+                }
+            }
+            return count;
+        }
+
+        function renderIncomeList() {
+            const tbody = document.getElementById('incomeListBody');
+            const monthIncomes = extraIncomes.filter(i => i.date && i.date.startsWith(currentYearMonth));
+
+            if (monthIncomes.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">이번 달 추가 수입 내역이 없습니다.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = monthIncomes.map(item => `
+                <tr class="hover:bg-slate-50">
+                    <td class="p-2.5 font-medium">${item.date}</td>
+                    <td class="p-2.5">${item.title}</td>
+                    <td class="p-2.5 text-right font-bold text-indigo-600">+${parseFloat(item.amount).toLocaleString()} RMB</td>
+                    <td class="p-2.5 text-center space-x-1">
+                        <button onclick="editIncome('${item.id}')" class="p-1 text-slate-400 hover:text-indigo-600">
+                            <i class="fa-solid fa-pen text-xs"></i>
+                        </button>
+                        <button onclick="deleteIncome('${item.id}')" class="p-1 text-slate-400 hover:text-rose-600">
+                            <i class="fa-solid fa-trash text-xs"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        window.editIncome = function(id) {
+            const item = extraIncomes.find(i => i.id === id);
+            if (!item) return;
+
+            document.getElementById('incomeEditId').value = item.id;
+            document.getElementById('incomeDate').value = item.date;
+            document.getElementById('incomeTitle').value = item.title;
+            document.getElementById('incomeAmount').value = item.amount;
+            document.getElementById('addIncomeForm').classList.remove('hidden');
+        };
+
+        window.deleteIncome = async function(id) {
+            if (!confirm("해당 수입 항목을 삭제하시겠습니까?")) return;
+
+            extraIncomes = extraIncomes.filter(i => i.id !== id);
+            saveLocalStorage();
+
+            if (db && firebaseConfig.apiKey !== "dummy-key") {
+                try {
+                    await deleteDoc(doc(db, "lunch_incomes", id));
+                } catch (e) {
+                    console.warn(e);
+                }
+            }
+
+            showToast("수입 항목이 삭제되었습니다.");
+            renderIncomeList();
+            renderAll();
+        };
+
+        function renderCalendar() {
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = '';
+
+            const [y, m] = currentYearMonth.split('-').map(Number);
+            const firstDayIndex = new Date(y, m - 1, 1).getDay();
+            const totalDays = new Date(y, m, 0).getDate();
+
+            // Month transactions map { dayNum: totalAmount }
+            const monthTx = transactions.filter(t => t.date && t.date.startsWith(currentYearMonth));
+            const dayTotals = {};
+            monthTx.forEach(t => {
+                const day = parseInt(t.date.split('-')[2]);
+                dayTotals[day] = (dayTotals[day] || 0) + (parseFloat(t.amount) || 0);
+            });
+
+            // Blank cells for alignment
+            for (let i = 0; i < firstDayIndex; i++) {
+                grid.innerHTML += `<div class="bg-slate-50/50 min-h-[90px] border-b border-r border-slate-100"></div>`;
+            }
+
+            // Days cells
+            const todayStr = new Date().toISOString().split('T')[0];
+
+            for (let day = 1; day <= totalDays; day++) {
+                const dayStr = `${currentYearMonth}-${String(day).padStart(2, '0')}`;
+                const isToday = dayStr === todayStr;
+                const totalSpent = dayTotals[day] || 0;
+                const dayOfWeek = new Date(y, m - 1, day).getDay();
+
+                let textColor = "text-slate-700";
+                if (dayOfWeek === 0) textColor = "text-rose-500";
+                if (dayOfWeek === 6) textColor = "text-sky-500";
+
+                const dayTx = monthTx.filter(t => t.date === dayStr);
+                const hasTx = dayTx.length > 0;
+
+                grid.innerHTML += `
+                    <div onclick="openDayDetail('${dayStr}')" class="min-h-[95px] p-2 bg-white border-b border-r border-slate-100 hover:bg-indigo-50/40 transition-colors cursor-pointer flex flex-col justify-between group">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold ${textColor} ${isToday ? 'bg-indigo-600 text-white w-5 h-5 rounded-full flex items-center justify-center shadow-sm' : ''}">${day}</span>
+                            ${hasTx ? `<span class="text-[10px] font-extrabold px-1.5 py-0.5 bg-rose-50 text-rose-600 rounded-md border border-rose-100">${totalSpent.toLocaleString()} RMB</span>` : ''}
+                        </div>
+                        <div class="mt-1 flex-grow flex flex-col justify-end space-y-1">
+                            ${getDayTxBadges(dayStr)}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function getDayTxBadges(dayStr) {
+            const dayTx = transactions.filter(t => t.date === dayStr);
+            if (dayTx.length === 0) return '';
+            return dayTx.slice(0, 2).map(t => `
+                <div class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded truncate font-medium flex items-center justify-between">
+                    <span class="truncate">${t.title}</span>
+                </div>
+            `).join('') + (dayTx.length > 2 ? `<span class="text-[9px] text-slate-400 pl-1">+${dayTx.length - 2}건 더보기</span>` : '');
+        }
+
+        window.openDayDetail = function(dayStr) {
+            document.getElementById('dayDetailTitle').textContent = `${dayStr} 식대 내역`;
+            const dayTx = transactions.filter(t => t.date === dayStr);
+            const container = document.getElementById('dayDetailList');
+
+            if (dayTx.length === 0) {
+                container.innerHTML = `<p class="text-center text-slate-400 text-xs py-8">등록된 식사 내역이 없습니다.</p>`;
+            } else {
+                container.innerHTML = dayTx.map(t => `
+                    <div class="py-2.5 flex items-center justify-between">
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <span class="px-1.5 py-0.5 text-[10px] font-bold bg-indigo-50 text-indigo-600 rounded border border-indigo-100">${t.category}</span>
+                                <h4 class="text-xs font-bold text-slate-800">${t.title}</h4>
+                            </div>
+                            <p class="text-[11px] text-slate-500 mt-0.5">결제자: <span class="font-semibold text-slate-700">${t.payer}</span> | 참여: ${(t.participants || []).join(', ')}</p>
+                        </div>
+                        <div class="text-right flex items-center space-x-2">
+                            <span class="text-xs font-extrabold text-slate-900">${parseFloat(t.amount).toLocaleString()} RMB</span>
+                            <button onclick="openExpenseModalById('${t.id}')" class="p-1 text-slate-400 hover:text-indigo-600">
+                                <i class="fa-solid fa-pen text-xs"></i>
+                            </button>
+                            <button onclick="deleteTransaction('${t.id}')" class="p-1 text-slate-400 hover:text-rose-600">
+                                <i class="fa-solid fa-trash text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            document.getElementById('addExpenseForDayBtn').onclick = () => {
+                closeAllModals();
+                openExpenseModal(null, dayStr);
+            };
+
+            document.getElementById('dayDetailModal').classList.remove('hidden');
+        };
+
+        window.openExpenseModalById = function(id) {
+            const item = transactions.find(t => t.id === id);
+            if (item) {
+                closeAllModals();
+                openExpenseModal(item);
+            }
+        };
+
+        window.deleteTransaction = async function(id) {
+            if (!confirm("해당 식사 내역을 삭제하시겠습니까?")) return;
+
+            transactions = transactions.filter(t => t.id !== id);
+            saveLocalStorage();
+
+            if (db && firebaseConfig.apiKey !== "dummy-key") {
+                try {
+                    await deleteDoc(doc(db, "lunch_transactions", id));
+                } catch (e) {
+                    console.warn(e);
+                }
+            }
+
+            closeAllModals();
+            showToast("지출 내역이 삭제되었습니다.");
+            renderAll();
+        };
+
+        function renderTable() {
+            const tbody = document.getElementById('transactionTableBody');
+            const searchKeyword = document.getElementById('searchInput').value.trim().toLowerCase();
+            const categoryFilter = document.getElementById('filterCategory').value;
+            const payerFilter = document.getElementById('filterPayer').value;
+
+            let filtered = transactions.filter(t => t.date && t.date.startsWith(currentYearMonth));
+
+            if (categoryFilter !== 'ALL') {
+                filtered = filtered.filter(t => t.category === categoryFilter);
+            }
+
+            if (payerFilter !== 'ALL') {
+                filtered = filtered.filter(t => t.payer === payerFilter);
+            }
+
+            if (searchKeyword) {
+                filtered = filtered.filter(t => 
+                    (t.title && t.title.toLowerCase().includes(searchKeyword)) ||
+                    (t.memo && t.memo.toLowerCase().includes(searchKeyword))
+                );
+            }
+
+            filtered.sort((a, b) => b.date.localeCompare(a.date));
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400">조건에 일치하는 지출 내역이 없습니다.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(item => `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="p-3.5 font-medium text-slate-600">${item.date}</td>
+                    <td class="p-3.5 font-bold text-slate-900">
+                        ${item.title}
+                        ${item.memo ? `<p class="text-[10px] text-slate-400 font-normal">${item.memo}</p>` : ''}
+                    </td>
+                    <td class="p-3.5">
+                        <span class="px-2 py-0.5 text-[10px] font-bold bg-indigo-50 text-indigo-600 rounded-md border border-indigo-100">${item.category}</span>
+                    </td>
+                    <td class="p-3.5 text-right font-extrabold text-slate-900">${parseFloat(item.amount).toLocaleString()} RMB</td>
+                    <td class="p-3.5 font-semibold text-slate-700">${item.payer}</td>
+                    <td class="p-3.5 text-slate-500 max-w-[160px] truncate">${(item.participants || []).join(', ')}</td>
+                    <td class="p-3.5 text-center space-x-1">
+                        <button onclick="openExpenseModalById('${item.id}')" class="p-1.5 text-slate-400 hover:text-indigo-600 rounded-md">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                        <button onclick="deleteTransaction('${item.id}')" class="p-1.5 text-slate-400 hover:text-rose-600 rounded-md">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderSettlement() {
+            const tbody = document.getElementById('settlementTableBody');
+            const monthTx = transactions.filter(t => t.date && t.date.startsWith(currentYearMonth));
+
+            // Initialize member metrics
+            const stats = {};
+            teamMembers.forEach(m => {
+                stats[m] = { paid: 0, share: 0 };
+            });
+
+            monthTx.forEach(t => {
+                const amount = parseFloat(t.amount) || 0;
+                // Add paid amount
+                if (stats[t.payer]) {
+                    stats[t.payer].paid += amount;
+                }
+
+                // Add share
+                const parts = t.participants && t.participants.length > 0 ? t.participants : teamMembers;
+                const perPerson = amount / parts.length;
+                parts.forEach(p => {
+                    if (stats[p]) {
+                        stats[p].share += perPerson;
+                    }
+                });
+            });
+
+            tbody.innerHTML = teamMembers.map(m => {
+                const paid = stats[m].paid;
+                const share = stats[m].share;
+                const diff = paid - share; // Positive = should receive money, Negative = owes money
+
+                let diffBadge = `<span class="font-bold text-slate-600">0 RMB</span>`;
+                if (diff > 0) {
+                    diffBadge = `<span class="px-2 py-0.5 bg-emerald-50 text-emerald-700 font-extrabold rounded-md border border-emerald-200">+${Math.round(diff).toLocaleString()} RMB (받을 금액)</span>`;
+                } else if (diff < 0) {
+                    diffBadge = `<span class="px-2 py-0.5 bg-rose-50 text-rose-700 font-extrabold rounded-md border border-rose-200">${Math.round(diff).toLocaleString()} RMB (보낼 금액)</span>`;
+                }
+
+                return `
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-3 font-bold text-slate-800">${m}</td>
+                        <td class="p-3 text-right font-semibold text-slate-700">${Math.round(paid).toLocaleString()} RMB</td>
+                        <td class="p-3 text-right text-slate-500">${Math.round(share).toLocaleString()} RMB</td>
+                        <td class="p-3 text-right">${diffBadge}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderCharts() {
+            const monthTx = transactions.filter(t => t.date && t.date.startsWith(currentYearMonth));
+
+            // Category Pie Chart
+            const categoryTotals = {};
+            monthTx.forEach(t => {
+                categoryTotals[t.category] = (categoryTotals[t.category] || 0) + (parseFloat(t.amount) || 0);
+            });
+
+            const pieLabels = Object.keys(categoryTotals);
+            const pieData = Object.values(categoryTotals);
+
+            const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+            if (categoryChartInstance) categoryChartInstance.destroy();
+
+            categoryChartInstance = new Chart(categoryCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: pieLabels.length ? pieLabels : ['데이터 없음'],
+                    datasets: [{
+                        data: pieData.length ? pieData : [1],
+                        backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'],
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+
+            // Daily Bar Chart
+            const [y, m] = currentYearMonth.split('-').map(Number);
+            const totalDays = new Date(y, m, 0).getDate();
+            const dailyData = new Array(totalDays).fill(0);
+
+            monthTx.forEach(t => {
+                const day = parseInt(t.date.split('-')[2]);
+                if (day >= 1 && day <= totalDays) {
+                    dailyData[day - 1] += parseFloat(t.amount) || 0;
+                }
+            });
+
+            const barCtx = document.getElementById('dailyChart').getContext('2d');
+            if (dailyChartInstance) dailyChartInstance.destroy();
+
+            dailyChartInstance = new Chart(barCtx, {
+                type: 'bar',
+                data: {
+                    labels: Array.from({ length: totalDays }, (_, i) => `${i + 1}일`),
+                    datasets: [{
+                        label: '지출액 (RMB)',
+                        data: dailyData,
+                        backgroundColor: '#6366f1',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        function exportToCsv() {
+            const monthTx = transactions.filter(t => t.date && t.date.startsWith(currentYearMonth));
+            if (monthTx.length === 0) {
+                showToast("내보낼 지출 내역이 없습니다.", "error");
+                return;
+            }
+
+            let csvContent = "\uFEFF날짜,식당/내역,카테고리,금액(RMB),결제자,참여자,비고\n";
+            monthTx.forEach(t => {
+                const title = `"${(t.title || '').replace(/"/g, '""')}"`;
+                const memo = `"${(t.memo || '').replace(/"/g, '""')}"`;
+                const parts = `"${(t.participants || []).join(', ')}"`;
+                csvContent += `${t.date},${title},${t.category},${t.amount},${t.payer},${parts},${memo}\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `팀_식대_내역_${currentYearMonth}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>

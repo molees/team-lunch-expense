@@ -543,18 +543,16 @@
         let auth = null;
         let currentUser = null;
 
-        // Application State
         let currentYearMonth = getFormattedYearMonth(new Date()); // e.g. "2026-09"
         let activeTab = 'calendar';
 
         // Team members requirement: 이인모가 맨 위로 오도록 설정
         const teamMembers = ['이인모', '박태규', '이수웅', '이정규', '이종인'];
 
-        let monthlyBudgets = {}; // { 'YYYY-MM': number }
-        let extraIncomes = [];   // Array of { id, date, title, amount }
-        let transactions = [];   // Array of { id, date, title, category, amount, payer, participants, memo }
+        let monthlyBudgets = {}; 
+        let extraIncomes = [];   
+        let transactions = [];   
 
-        // Chart instances
         let categoryChartInstance = null;
         let dailyChartInstance = null;
 
@@ -782,7 +780,7 @@
             document.getElementById('exportCsvBtn').addEventListener('click', exportToCsv);
         }
 
-        // Robust Excel File Parser Function for Sheet-by-Sheet Monthly Data
+        // Extremely Robust Multi-Sheet Excel Parser
         function handleExcelUpload(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -797,107 +795,109 @@
                     let importedIncomeCount = 0;
 
                     workbook.SheetNames.forEach(sheetName => {
-                        let ym = parseYearMonthFromSheetName(sheetName);
-                        if (!ym) return; // Skip SUM or 식당표 or unrecognized sheets
+                        try {
+                            let ym = parseYearMonthFromSheetName(sheetName);
+                            if (!ym) return;
 
-                        const worksheet = workbook.Sheets[sheetName];
-                        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null });
-                        if (rows.length < 3) return;
+                            const worksheet = workbook.Sheets[sheetName];
+                            const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null });
+                            if (!rows || rows.length < 3) return;
 
-                        // Find header row containing team members
-                        let memberColMap = {}; 
-                        let headerRowIdx = 1;
-                        for (let r = 0; r < Math.min(rows.length, 5); r++) {
-                            let row = rows[r];
-                            if (!row) continue;
-                            for (let c = 0; c < row.length; c++) {
-                                let val = String(row[c] || '').trim();
-                                if (teamMembers.includes(val)) {
-                                    headerRowIdx = r;
-                                    break;
-                                }
-                            }
-                        }
-
-                        let headerRow = rows[headerRowIdx] || [];
-                        headerRow.forEach((val, idx) => {
-                            let cleanVal = String(val || '').trim();
-                            if (teamMembers.includes(cleanVal)) {
-                                memberColMap[cleanVal] = idx;
-                            }
-                        });
-
-                        if (Object.keys(memberColMap).length === 0) {
-                            teamMembers.forEach((m, idx) => {
-                                memberColMap[m] = 8 + idx;
-                            });
-                        }
-
-                        // Parse rows starting from headerRowIdx + 1
-                        for (let r = headerRowIdx + 1; r < rows.length; r++) {
-                            let row = rows[r];
-                            if (!row || row.length === 0) continue;
-
-                            // 1. Income parsing (col 1: name, col 2: amount)
-                            let incName = String(row[1] || '').trim();
-                            let incAmount = parseFloat(row[2]);
-                            if (incName && !isNaN(incAmount) && incName !== '성명' && incName !== '이월' && incAmount !== 0) {
-                                let incDate = `${ym}-01`;
-                                let incId = `inc_${ym}_${r}`;
-                                let incObj = { id: incId, date: incDate, title: incName + ' 지원금', amount: incAmount };
-                                const existingIdx = extraIncomes.findIndex(i => i.id === incId);
-                                if (existingIdx >= 0) extraIncomes[existingIdx] = incObj;
-                                else extraIncomes.push(incObj);
-                                importedIncomeCount++;
-                            } else if (incName === '이월' && !isNaN(incAmount)) {
-                                monthlyBudgets[ym] = Math.max(0, incAmount);
-                            }
-
-                            // 2. Expense parsing (col 3/4: date, col 5: restaurant, col 6: amount)
-                            let dateVal = row[3] !== null && row[3] !== undefined ? row[3] : row[4];
-                            let restaurant = String(row[5] || '').trim();
-                            let amount = parseFloat(row[6]);
-
-                            if (restaurant && restaurant !== '식당' && restaurant !== '-' && !isNaN(amount)) {
-                                let formattedDate = parseExcelDate(dateVal, ym);
-                                if (!formattedDate) continue;
-
-                                let participants = [];
-                                teamMembers.forEach(m => {
-                                    let colIdx = memberColMap[m];
-                                    if (colIdx !== undefined && row[colIdx] !== undefined && row[colIdx] !== null) {
-                                        let cellVal = String(row[colIdx]).trim().toLowerCase();
-                                        if (cellVal === 'v' || cellVal === 'o' || cellVal === 'true' || cellVal === '1') {
-                                            participants.push(m);
-                                        }
+                            let memberColMap = {}; 
+                            let headerRowIdx = 1;
+                            for (let r = 0; r < Math.min(rows.length, 5); r++) {
+                                let row = rows[r];
+                                if (!row) continue;
+                                for (let c = 0; c < row.length; c++) {
+                                    let val = String(row[c] || '').trim();
+                                    if (teamMembers.includes(val)) {
+                                        headerRowIdx = r;
+                                        break;
                                     }
-                                });
+                                }
+                            }
 
-                                if (participants.length === 0) {
-                                    participants = [...teamMembers];
+                            let headerRow = rows[headerRowIdx] || [];
+                            headerRow.forEach((val, idx) => {
+                                let cleanVal = String(val || '').trim();
+                                if (teamMembers.includes(cleanVal)) {
+                                    memberColMap[cleanVal] = idx;
+                                }
+                            });
+
+                            if (Object.keys(memberColMap).length === 0) {
+                                teamMembers.forEach((m, idx) => {
+                                    memberColMap[m] = 8 + idx;
+                                });
+                            }
+
+                            for (let r = headerRowIdx + 1; r < rows.length; r++) {
+                                let row = rows[r];
+                                if (!row || row.length === 0) continue;
+
+                                // 1. Income parsing
+                                let incName = String(row[1] || '').trim();
+                                let incAmount = parseFloat(row[2]);
+                                if (incName && !isNaN(incAmount) && incName !== '성명' && incName !== '이월' && incAmount !== 0) {
+                                    let incDate = `${ym}-01`;
+                                    let incId = `inc_${ym}_${r}`;
+                                    let incObj = { id: incId, date: incDate, title: incName + ' 지원금', amount: incAmount };
+                                    const existingIdx = extraIncomes.findIndex(i => i.id === incId);
+                                    if (existingIdx >= 0) extraIncomes[existingIdx] = incObj;
+                                    else extraIncomes.push(incObj);
+                                    importedIncomeCount++;
+                                } else if (incName === '이월' && !isNaN(incAmount)) {
+                                    monthlyBudgets[ym] = Math.max(0, incAmount);
                                 }
 
-                                let category = '한식';
-                                if (restaurant.includes('중식') || restaurant.includes('한궈') || restaurant.includes('홍보각')) category = '중식';
-                                else if (restaurant.includes('일식') || restaurant.includes('횟집') || restaurant.includes('만어정')) category = '일식';
-                                else if (restaurant.includes('카페') || restaurant.includes('커피')) category = '카페/디저트';
-                                else if (restaurant.includes('분식') || restaurant.includes('김밥')) category = '분식/기타';
+                                // 2. Expense parsing
+                                let dateVal = (row[3] !== null && row[3] !== undefined) ? row[3] : row[4];
+                                let restaurant = String(row[5] || '').trim();
+                                let amount = parseFloat(row[6]);
 
-                                let txId = `tx_${ym}_${r}_${Math.random().toString(36).substring(2, 6)}`;
-                                let txObj = {
-                                    id: txId,
-                                    date: formattedDate,
-                                    title: restaurant,
-                                    category: category,
-                                    amount: amount,
-                                    payer: '이인모',
-                                    participants: participants,
-                                    memo: String(row[14] || row[15] || row[16] || '').trim()
-                                };
+                                if (restaurant && restaurant !== '식당' && restaurant !== '-' && !isNaN(amount)) {
+                                    let formattedDate = parseExcelDate(dateVal, ym);
+                                    if (!formattedDate) continue;
 
-                                transactions.push(txObj);
-                                importedTxCount++;
+                                    let participants = [];
+                                    teamMembers.forEach(m => {
+                                        let colIdx = memberColMap[m];
+                                        if (colIdx !== undefined && row[colIdx] !== undefined && row[colIdx] !== null) {
+                                            let cellVal = String(row[colIdx]).trim().toLowerCase();
+                                            if (cellVal === 'v' || cellVal === 'o' || cellVal === 'true' || cellVal === '1') {
+                                                participants.push(m);
+                                            }
+                                        }
+                                    });
+
+                                    if (participants.length === 0) {
+                                        participants = [...teamMembers];
+                                    }
+
+                                    let category = '한식';
+                                    if (restaurant.includes('중식') || restaurant.includes('한궈') || restaurant.includes('홍보각')) category = '중식';
+                                    else if (restaurant.includes('일식') || restaurant.includes('횟집') || restaurant.includes('만어정')) category = '일식';
+                                    else if (restaurant.includes('카페') || restaurant.includes('커피')) category = '카페/디저트';
+                                    else if (restaurant.includes('분식') || restaurant.includes('김밥')) category = '분식/기타';
+
+                                    let txId = `tx_${ym}_${r}_${Math.random().toString(36).substring(2, 6)}`;
+                                    let txObj = {
+                                        id: txId,
+                                        date: formattedDate,
+                                        title: restaurant,
+                                        category: category,
+                                        amount: amount,
+                                        payer: '이인모',
+                                        participants: participants,
+                                        memo: String(row[14] || row[15] || row[16] || '').trim()
+                                    };
+
+                                    transactions.push(txObj);
+                                    importedTxCount++;
+                                }
                             }
+                        } catch (sheetErr) {
+                            console.warn(`Sheet ${sheetName} parse warning:`, sheetErr);
                         }
                     });
 
@@ -905,25 +905,22 @@
                     showToast(`엑셀 업로드 성공! 지출 ${importedTxCount}건, 수입 ${importedIncomeCount}건 반영됨`);
                     renderAll();
                 } catch (err) {
-                    console.error("Excel parse error:", err);
-                    showToast("엑셀 파일 파싱 중 오류가 발생했습니다.", "error");
+                    console.error("Excel parse global error:", err);
+                    showToast("엑셀 파일 파싱 중 오류가 발생했습니다. 파일을 확인해주세요.", "error");
                 }
             };
             reader.readAsArrayBuffer(file);
             e.target.value = '';
         }
 
-        // Accurate Sheet Name to YYYY-MM Parser
         function parseYearMonthFromSheetName(sheetName) {
             sheetName = String(sheetName || '').trim();
             if (sheetName === 'SUM' || sheetName === '식당표') return null;
 
-            // e.g. "2월", "3월" ... (2025년 sheets in this file)
             if (/^\d{1,2}월$/.test(sheetName)) {
                 let m = sheetName.replace('월', '').padStart(2, '0');
                 return `2025-${m}`;
             }
-            // e.g. "26년2월" or "2026년2월"
             let match26 = sheetName.match(/^(?:20)?26년\s*(\d{1,2})월$/);
             if (match26) {
                 let m = match26[1].padStart(2, '0');
@@ -949,7 +946,6 @@
             if (/^\d{1,2}$/.test(str)) {
                 return `${defaultYm}-${str.padStart(2, '0')}`;
             }
-            // If it's Excel serial date number
             if (!isNaN(Number(str)) && Number(str) > 30000) {
                 const excelEpoch = new Date(1899, 11, 30);
                 const jsDate = new Date(excelEpoch.getTime() + Number(str) * 86400000);

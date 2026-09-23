@@ -543,10 +543,9 @@
         let auth = null;
         let currentUser = null;
 
-        let currentYearMonth = getFormattedYearMonth(new Date()); // e.g. "2026-09"
+        let currentYearMonth = getFormattedYearMonth(new Date()); 
         let activeTab = 'calendar';
 
-        // Team members requirement: 이인모가 맨 위로 오도록 설정
         const teamMembers = ['이인모', '박태규', '이수웅', '이정규', '이종인'];
 
         let monthlyBudgets = {}; 
@@ -780,7 +779,6 @@
             document.getElementById('exportCsvBtn').addEventListener('click', exportToCsv);
         }
 
-        // Extremely Robust Multi-Sheet Excel Parser
         function handleExcelUpload(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -835,7 +833,6 @@
                                 let row = rows[r];
                                 if (!row || row.length === 0) continue;
 
-                                // 1. Income parsing
                                 let incName = String(row[1] || '').trim();
                                 let incAmount = parseFloat(row[2]);
                                 if (incName && !isNaN(incAmount) && incName !== '성명' && incName !== '이월' && incAmount !== 0) {
@@ -850,7 +847,6 @@
                                     monthlyBudgets[ym] = Math.max(0, incAmount);
                                 }
 
-                                // 2. Expense parsing
                                 let dateVal = (row[3] !== null && row[3] !== undefined) ? row[3] : row[4];
                                 let restaurant = String(row[5] || '').trim();
                                 let amount = parseFloat(row[6]);
@@ -1211,7 +1207,7 @@
             });
 
             for (let i = 0; i < firstDayIndex; i++) {
-                grid.innerHTML += `<div class="bg-slate-50/50 min-h-[90px] border-b border-r border-slate-100"></div>`;
+                grid.innerHTML += `<div class="bg-slate-50/50 min-h-[105px] border-b border-r border-slate-100"></div>`;
             }
 
             const todayStr = new Date().toISOString().split('T')[0];
@@ -1230,10 +1226,10 @@
                 const hasTx = dayTx.length > 0;
 
                 grid.innerHTML += `
-                    <div onclick="openDayDetail('${dayStr}')" class="min-h-[95px] p-2 bg-white border-b border-r border-slate-100 hover:bg-indigo-50/40 transition-colors cursor-pointer flex flex-col justify-between group">
+                    <div onclick="openDayDetail('${dayStr}')" class="min-h-[110px] p-2 bg-white border-b border-r border-slate-100 hover:bg-indigo-50/30 transition-all cursor-pointer flex flex-col justify-between group shadow-2xs">
                         <div class="flex items-center justify-between">
                             <span class="text-xs font-bold ${textColor} ${isToday ? 'bg-indigo-600 text-white w-5 h-5 rounded-full flex items-center justify-center shadow-sm' : ''}">${day}</span>
-                            <span class="text-[10px] font-extrabold px-1.5 py-0.5 ${hasTx ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'text-slate-300'}">${totalSpent.toLocaleString()} RMB</span>
+                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${hasTx ? 'bg-slate-100 text-slate-700 border border-slate-200' : 'text-slate-300'}">${totalSpent > 0 ? totalSpent.toLocaleString() + ' RMB' : ''}</span>
                         </div>
                         <div class="mt-1 flex-grow flex flex-col justify-end space-y-1">
                             ${getDayTxBadges(dayStr)}
@@ -1246,11 +1242,13 @@
         function getDayTxBadges(dayStr) {
             const dayTx = transactions.filter(t => t.date === dayStr);
             if (dayTx.length === 0) return '';
+            
             return dayTx.slice(0, 2).map(t => `
-                <div class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded truncate font-medium flex items-center justify-between">
-                    <span class="truncate">${t.title}</span>
+                <div class="text-[11px] bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200/80 px-2 py-1 rounded-md font-semibold shadow-2xs flex items-center justify-between transition-colors">
+                    <span class="truncate pr-1"><i class="fa-solid fa-utensils text-[9px] text-indigo-500 mr-1"></i>${t.title}</span>
+                    <span class="text-[10px] font-bold text-indigo-600 whitespace-nowrap">${parseFloat(t.amount).toLocaleString()}</span>
                 </div>
-            `).join('') + (dayTx.length > 2 ? `<span class="text-[9px] text-slate-400 pl-1">+${dayTx.length - 2}건 더보기</span>` : '');
+            `).join('') + (dayTx.length > 2 ? `<div class="text-[10px] font-medium text-slate-500 text-center py-0.5 bg-slate-100 rounded">+${dayTx.length - 2}건 더보기</div>` : '');
         }
 
         window.openDayDetail = function(dayStr) {

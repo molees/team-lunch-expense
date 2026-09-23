@@ -115,18 +115,18 @@
                 <p id="displayRemainingSub" class="text-xs text-slate-400 mt-1">예산 대비 0% 소진</p>
             </div>
 
-            <!-- Card 4: Daily Average / Remaining Weekday Target -->
+            <!-- Card 4: Daily Average Lunch Cost (Modified) -->
             <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
                 <div class="flex items-center justify-between">
-                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">일일 권장 지출 가능액</span>
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">일일 평균 점심 비용</span>
                     <span class="p-2 bg-sky-50 text-sky-600 rounded-lg">
-                        <i class="fa-solid fa-calculator text-sm"></i>
+                        <i class="fa-solid fa-chart-line text-sm"></i>
                     </span>
                 </div>
                 <div class="mt-2">
                     <h2 id="displayDailyTarget" class="text-2xl font-bold text-slate-900">0 RMB / 일</h2>
                 </div>
-                <p id="displayDailySub" class="text-xs text-slate-400 mt-1">남은 평일 기준 계산</p>
+                <p id="displayDailySub" class="text-xs text-slate-400 mt-1">지출 발생 일수 기준 계산</p>
             </div>
         </div>
 
@@ -1100,10 +1100,11 @@
                 remIconBg.className = "p-2 bg-emerald-50 text-emerald-600 rounded-lg";
             }
 
-            const remainingWeekdays = getRemainingWeekdays(currentYearMonth);
-            const dailyTarget = remainingWeekdays > 0 ? Math.max(0, Math.round(remaining / remainingWeekdays)) : 0;
-            document.getElementById('displayDailyTarget').textContent = `${dailyTarget.toLocaleString()} RMB / 일`;
-            document.getElementById('displayDailySub').textContent = `남은 평일 ${remainingWeekdays}일 기준`;
+            // Daily Average Lunch Cost Calculation (Modified)
+            const uniqueDays = new Set(monthTransactions.map(t => t.date)).size;
+            const dailyAvgCost = uniqueDays > 0 ? Math.round(totalSpent / uniqueDays) : 0;
+            document.getElementById('displayDailyTarget').textContent = `${dailyAvgCost.toLocaleString()} RMB / 일`;
+            document.getElementById('displayDailySub').textContent = `지출 발생 일수 (${uniqueDays}일) 기준 계산`;
 
             const filterPayerSelect = document.getElementById('filterPayer');
             const currentPayerVal = filterPayerSelect.value;
@@ -1117,22 +1118,6 @@
             if (activeTab === 'analytics') {
                 renderCharts();
             }
-        }
-
-        function getRemainingWeekdays(yearMonth) {
-            const [y, m] = yearMonth.split('-').map(Number);
-            const now = new Date();
-            const startDay = (now.getFullYear() === y && now.getMonth() + 1 === m) ? now.getDate() : 1;
-            const daysInMonth = new Date(y, m, 0).getDate();
-
-            let count = 0;
-            for (let day = startDay; day <= daysInMonth; day++) {
-                const dayOfWeek = new Date(y, m - 1, day).getDay();
-                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-                    count++;
-                }
-            }
-            return count;
         }
 
         function renderIncomeList() {
@@ -1244,7 +1229,7 @@
             const dayTx = transactions.filter(t => t.date === dayStr);
             if (dayTx.length === 0) return '';
             
-            // 금액 제거 및 식당 이름만 표기하도록 수정
+            // 금액 제거 및 식당 이름만 표기
             return dayTx.slice(0, 2).map(t => `
                 <div class="text-[11px] bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200/80 px-2 py-1 rounded-md font-semibold shadow-2xs flex items-center transition-colors">
                     <span class="truncate pr-1"><i class="fa-solid fa-utensils text-[9px] text-indigo-500 mr-1"></i>${t.title}</span>

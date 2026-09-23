@@ -126,7 +126,7 @@
                 <div class="mt-2">
                     <h2 id="displayDailyTarget" class="text-2xl font-bold text-slate-900">0 RMB / 일</h2>
                 </div>
-                <p id="displayDailySub" class="text-xs text-slate-400 mt-1">지출 발생 일수 기준 계산</p>
+                <p id="displayDailySub" class="text-xs text-slate-400 mt-1">0원 및 미지불일 제외 계산</p>
             </div>
         </div>
 
@@ -1100,11 +1100,14 @@
                 remIconBg.className = "p-2 bg-emerald-50 text-emerald-600 rounded-lg";
             }
 
-            // Daily Average Lunch Cost Calculation (Modified)
-            const uniqueDays = new Set(monthTransactions.map(t => t.date)).size;
-            const dailyAvgCost = uniqueDays > 0 ? Math.round(totalSpent / uniqueDays) : 0;
+            // Daily Average Lunch Cost Calculation (Modified: 식대 0원 및 미지불일 제외)
+            const validTransactions = monthTransactions.filter(t => (parseFloat(t.amount) || 0) > 0);
+            const totalValidSpent = validTransactions.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+            const uniqueValidDays = new Set(validTransactions.map(t => t.date)).size;
+            const dailyAvgCost = uniqueValidDays > 0 ? Math.round(totalValidSpent / uniqueValidDays) : 0;
+            
             document.getElementById('displayDailyTarget').textContent = `${dailyAvgCost.toLocaleString()} RMB / 일`;
-            document.getElementById('displayDailySub').textContent = `지출 발생 일수 (${uniqueDays}일) 기준 계산`;
+            document.getElementById('displayDailySub').textContent = `유효 지출 일수 (${uniqueValidDays}일, 0원·미지불 제외)`;
 
             const filterPayerSelect = document.getElementById('filterPayer');
             const currentPayerVal = filterPayerSelect.value;
@@ -1214,7 +1217,6 @@
                     <div onclick="openDayDetail('${dayStr}')" class="min-h-[110px] p-2 bg-white border-b border-r border-slate-100 hover:bg-indigo-50/30 transition-all cursor-pointer flex flex-col justify-between group shadow-2xs">
                         <div class="flex items-center justify-between">
                             <span class="text-xs font-bold ${textColor} ${isToday ? 'bg-indigo-600 text-white w-5 h-5 rounded-full flex items-center justify-center shadow-sm' : ''}">${day}</span>
-                            <!-- 식사 비용 텍스트: 빨간색, 글씨 크기 키움 -->
                             <span class="text-xs font-extrabold px-1.5 py-0.5 rounded ${hasTx ? 'bg-rose-50 text-rose-600 border border-rose-200' : 'text-slate-300'}">${totalSpent > 0 ? totalSpent.toLocaleString() + ' RMB' : ''}</span>
                         </div>
                         <div class="mt-1 flex-grow flex flex-col justify-end space-y-1">
@@ -1229,7 +1231,6 @@
             const dayTx = transactions.filter(t => t.date === dayStr);
             if (dayTx.length === 0) return '';
             
-            // 금액 제거 및 식당 이름만 표기
             return dayTx.slice(0, 2).map(t => `
                 <div class="text-[11px] bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200/80 px-2 py-1 rounded-md font-semibold shadow-2xs flex items-center transition-colors">
                     <span class="truncate pr-1"><i class="fa-solid fa-utensils text-[9px] text-indigo-500 mr-1"></i>${t.title}</span>

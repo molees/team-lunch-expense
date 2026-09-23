@@ -1229,7 +1229,8 @@
                     <div onclick="openDayDetail('${dayStr}')" class="min-h-[110px] p-2 bg-white border-b border-r border-slate-100 hover:bg-indigo-50/30 transition-all cursor-pointer flex flex-col justify-between group shadow-2xs">
                         <div class="flex items-center justify-between">
                             <span class="text-xs font-bold ${textColor} ${isToday ? 'bg-indigo-600 text-white w-5 h-5 rounded-full flex items-center justify-center shadow-sm' : ''}">${day}</span>
-                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${hasTx ? 'bg-slate-100 text-slate-700 border border-slate-200' : 'text-slate-300'}">${totalSpent > 0 ? totalSpent.toLocaleString() + ' RMB' : ''}</span>
+                            <!-- 식사 비용 텍스트: 빨간색, 글씨 크기 키움 -->
+                            <span class="text-xs font-extrabold px-1.5 py-0.5 rounded ${hasTx ? 'bg-rose-50 text-rose-600 border border-rose-200' : 'text-slate-300'}">${totalSpent > 0 ? totalSpent.toLocaleString() + ' RMB' : ''}</span>
                         </div>
                         <div class="mt-1 flex-grow flex flex-col justify-end space-y-1">
                             ${getDayTxBadges(dayStr)}
@@ -1243,10 +1244,10 @@
             const dayTx = transactions.filter(t => t.date === dayStr);
             if (dayTx.length === 0) return '';
             
+            // 금액 제거 및 식당 이름만 표기하도록 수정
             return dayTx.slice(0, 2).map(t => `
-                <div class="text-[11px] bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200/80 px-2 py-1 rounded-md font-semibold shadow-2xs flex items-center justify-between transition-colors">
+                <div class="text-[11px] bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200/80 px-2 py-1 rounded-md font-semibold shadow-2xs flex items-center transition-colors">
                     <span class="truncate pr-1"><i class="fa-solid fa-utensils text-[9px] text-indigo-500 mr-1"></i>${t.title}</span>
-                    <span class="text-[10px] font-bold text-indigo-600 whitespace-nowrap">${parseFloat(t.amount).toLocaleString()}</span>
                 </div>
             `).join('') + (dayTx.length > 2 ? `<div class="text-[10px] font-medium text-slate-500 text-center py-0.5 bg-slate-100 rounded">+${dayTx.length - 2}건 더보기</div>` : '');
         }
